@@ -15,7 +15,7 @@ except ImportError as e:
 
 PROJECT_ID = os.environ.get("PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
 VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION", "us-central1")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash-002")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 # Vertex AI 初期化
 if VERTEX_AVAILABLE and PROJECT_ID and VERTEX_LOCATION:

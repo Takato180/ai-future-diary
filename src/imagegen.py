@@ -19,7 +19,7 @@ except ImportError as e:
 PROJECT_ID = os.environ.get("PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
 BUCKET_NAME = os.environ.get("BUCKET_NAME")
 VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION", "us-central1")
-IMAGEN_MODEL = os.environ.get("IMAGEN_MODEL", "imagen-3.0-generate-001")
+IMAGEN_MODEL = os.environ.get("IMAGEN_MODEL", "imagen-3.0-generate-002")
 
 # Vertex AI 初期化
 if VERTEX_AVAILABLE and PROJECT_ID and VERTEX_LOCATION:
