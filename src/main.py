@@ -41,7 +41,7 @@ def root():
     return {
         "message": "Future Diary API is alive", 
         "version": "1.0.0",
-        "timestamp": "2025-09-18-updated"
+        "timestamp": "2025-09-18-gemini-fix"
     }
 
 # ルーター登録
