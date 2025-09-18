@@ -29,5 +29,16 @@ def root():
 
 # ルーター登録
 app.include_router(storage_router)
-app.include_router(image_router)
-app.include_router(text_router)
+
+# AI機能ルーターの安全な登録
+try:
+    app.include_router(image_router)
+    print("Image router registered successfully")
+except Exception as e:
+    print(f"Failed to register image router: {e}")
+
+try:
+    app.include_router(text_router)
+    print("Text router registered successfully")
+except Exception as e:
+    print(f"Failed to register text router: {e}")
