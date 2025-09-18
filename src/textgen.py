@@ -125,12 +125,24 @@ async def generate_future_diary(request: FutureDiaryRequest):
         if not diary_text:
             # バッククォートを除去して、日記らしい部分を探す
             clean_text = result_text.replace('```', '').strip()
+            diary_lines = []
+            
             for line in clean_text.split('\n'):
                 line = line.strip()
+                # 画像プロンプト行や提案行は除外
                 if line and not line.startswith('画像プロンプト:') and not line.startswith('提案:') and 'watercolor' not in line.lower():
-                    diary_text = line[:200]
-                    break
-            if not diary_text:
+                    # "日記文:"で始まる場合は、その後の部分を取得
+                    if line.startswith('日記文:'):
+                        diary_text = line.replace('日記文:', '').strip()
+                        break
+                    # それ以外で意味のありそうな行を収集
+                    elif len(line) > 10 and ('だった' in line or 'した' in line or 'である' in line):
+                        diary_lines.append(line)
+            
+            # まだ見つからない場合は、収集した行から最初のものを使用
+            if not diary_text and diary_lines:
+                diary_text = diary_lines[0][:200]
+            elif not diary_text:
                 diary_text = "素敵な一日だった！"
                 
         if not image_prompt:
@@ -198,12 +210,24 @@ async def generate_today_reflection(request: TodayReflectionRequest):
         if not diary_text:
             # バッククォートを除去して、日記らしい部分を探す
             clean_text = result_text.replace('```', '').strip()
+            diary_lines = []
+            
             for line in clean_text.split('\n'):
                 line = line.strip()
+                # 画像プロンプト行は除外
                 if line and not line.startswith('画像プロンプト:') and 'watercolor' not in line.lower():
-                    diary_text = line[:200]
-                    break
-            if not diary_text:
+                    # "日記文:"で始まる場合は、その後の部分を取得
+                    if line.startswith('日記文:'):
+                        diary_text = line.replace('日記文:', '').strip()
+                        break
+                    # それ以外で意味のありそうな行を収集
+                    elif len(line) > 10 and ('だった' in line or 'した' in line or 'である' in line):
+                        diary_lines.append(line)
+            
+            # まだ見つからない場合は、収集した行から最初のものを使用
+            if not diary_text and diary_lines:
+                diary_text = diary_lines[0][:200]
+            elif not diary_text:
                 diary_text = request.reflection_text[:200] if request.reflection_text else "今日も良い一日だった。"
                 
         if not image_prompt:

@@ -237,7 +237,7 @@ export default function Home() {
                     </div>
                   )}
                   {planPage.text && (
-                    <div className="vertical-text text-gray-800 bg-transparent">
+                    <div className="text-gray-800 bg-transparent">
                       {planPage.text}
                     </div>
                   )}
@@ -285,7 +285,7 @@ export default function Home() {
                     </div>
                   )}
                   {actualPage.text && (
-                    <div className="vertical-text text-gray-800 bg-transparent">
+                    <div className="text-gray-800 bg-transparent">
                       {actualPage.text}
                     </div>
                   )}
