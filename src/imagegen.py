@@ -16,7 +16,7 @@ except ImportError as e:
     print(f"Vertex AI import failed: {e}")
     VERTEX_AVAILABLE = False
 
-PROJECT_ID = os.environ.get("PROJECT_ID")
+PROJECT_ID = os.environ.get("PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
 BUCKET_NAME = os.environ.get("BUCKET_NAME")
 VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION", "us-central1")
 IMAGEN_MODEL = os.environ.get("IMAGEN_MODEL", "imagen-3.0-generate-001")
