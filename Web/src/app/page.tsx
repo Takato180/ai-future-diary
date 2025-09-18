@@ -64,7 +64,7 @@ export default function Home() {
 
       setPlanPage(prev => ({ 
         ...prev, 
-        imageUrl: imageResult.signed_url || null,
+        imageUrl: imageResult.public_url || null,
         loading: false
       }));
 
@@ -103,7 +103,7 @@ export default function Home() {
 
       setActualPage(prev => ({ 
         ...prev, 
-        imageUrl: imageResult.signed_url || null,
+        imageUrl: imageResult.public_url || null,
         loading: false
       }));
 

@@ -113,16 +113,26 @@ async def generate_future_diary(request: FutureDiaryRequest):
         image_prompt = ""
         
         for line in lines:
+            line = line.strip()
             if line.startswith("日記文:"):
                 diary_text = line.replace("日記文:", "").strip()
             elif line.startswith("画像プロンプト:"):
                 image_prompt = line.replace("画像プロンプト:", "").strip()
-            elif "watercolor" in line.lower():
+            elif "watercolor" in line.lower() and not image_prompt:
                 image_prompt = line.strip()
         
-        # フォールバック
+        # より良いフォールバック: 日記らしい部分を抽出
         if not diary_text:
-            diary_text = result_text[:200] if result_text else "素敵な一日だった！"
+            # バッククォートを除去して、日記らしい部分を探す
+            clean_text = result_text.replace('```', '').strip()
+            for line in clean_text.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('画像プロンプト:') and not line.startswith('提案:') and 'watercolor' not in line.lower():
+                    diary_text = line[:200]
+                    break
+            if not diary_text:
+                diary_text = "素敵な一日だった！"
+                
         if not image_prompt:
             image_prompt = "watercolor style, peaceful daily life scene, soft and warm illustration"
         
@@ -176,16 +186,26 @@ async def generate_today_reflection(request: TodayReflectionRequest):
         image_prompt = ""
         
         for line in lines:
+            line = line.strip()
             if line.startswith("日記文:"):
                 diary_text = line.replace("日記文:", "").strip()
             elif line.startswith("画像プロンプト:"):
                 image_prompt = line.replace("画像プロンプト:", "").strip()
-            elif "watercolor" in line.lower():
+            elif "watercolor" in line.lower() and not image_prompt:
                 image_prompt = line.strip()
         
-        # フォールバック
+        # より良いフォールバック: 日記らしい部分を抽出
         if not diary_text:
-            diary_text = request.reflection_text[:200] if request.reflection_text else "今日も良い一日だった。"
+            # バッククォートを除去して、日記らしい部分を探す
+            clean_text = result_text.replace('```', '').strip()
+            for line in clean_text.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('画像プロンプト:') and 'watercolor' not in line.lower():
+                    diary_text = line[:200]
+                    break
+            if not diary_text:
+                diary_text = request.reflection_text[:200] if request.reflection_text else "今日も良い一日だった。"
+                
         if not image_prompt:
             image_prompt = "watercolor style, peaceful daily life scene, soft and warm illustration"
         
