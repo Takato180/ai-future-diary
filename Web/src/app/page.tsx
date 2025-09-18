@@ -70,7 +70,8 @@ export default function Home() {
 
     } catch (error) {
       console.error('Plan generation failed:', error);
-      alert(`エラー: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`エラー: ${errorMessage}`);
       setPlanPage(prev => ({ ...prev, loading: false }));
     }
   }
@@ -108,7 +109,8 @@ export default function Home() {
 
     } catch (error) {
       console.error('Actual reflection generation failed:', error);
-      alert(`エラー: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`エラー: ${errorMessage}`);
       setActualPage(prev => ({ ...prev, loading: false }));
     }
   }
