@@ -8,6 +8,7 @@ colorama==0.4.6
 fastapi==0.116.1
 google-api-core==2.25.1
 google-auth==2.40.3
+google-cloud-aiplatform==1.82.1
 google-cloud-core==2.4.3
 google-cloud-storage==3.4.0
 google-crc32c==1.7.1
@@ -33,5 +34,6 @@ typing-inspection==0.4.1
 typing_extensions==4.15.0
 urllib3==2.5.0
 uvicorn==0.35.0
+vertexai==1.85.0
 watchfiles==1.1.0
 websockets==15.0.1
