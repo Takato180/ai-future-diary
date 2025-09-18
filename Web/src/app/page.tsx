@@ -16,163 +16,184 @@ interface DiaryPage {
 }
 
 export default function Home() {
-  // 右ページ（未来日記）の状態
-  const [futurePlan, setFuturePlan] = useState('');
+  // 選択された日付
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // 左ページ（予定）の状態
+  const [plan, setPlan] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
-  const [futurePage, setFuturePage] = useState<DiaryPage>({
+  const [planPage, setPlanPage] = useState<DiaryPage>({
     text: '',
     imageUrl: null,
     loading: false
   });
 
-  // 左ページ（今日の振り返り）の状態
-  const [todayReflection, setTodayReflection] = useState('');
-  const [todayPage, setTodayPage] = useState<DiaryPage>({
+  // 右ページ（実際）の状態
+  const [actualReflection, setActualReflection] = useState('');
+  const [actualPage, setActualPage] = useState<DiaryPage>({
     text: '',
     imageUrl: null,
     loading: false
   });
 
-  async function handleGenerateFuture() {
-    setFuturePage(prev => ({ ...prev, loading: true }));
+  async function handleGeneratePlan() {
+    console.log('予定日記生成開始');
+    setPlanPage(prev => ({ ...prev, loading: true }));
     try {
+      console.log('API URL:', API);
+      
       // テキスト生成
+      console.log('テキスト生成中...');
       const textResult = await generateFutureDiary({
-        plan: futurePlan || undefined,
+        plan: plan || undefined,
         interests: interests.length > 0 ? interests : undefined,
         style: 'casual'
       });
+      console.log('テキスト生成成功:', textResult);
 
-      setFuturePage(prev => ({ ...prev, text: textResult.generated_text }));
+      setPlanPage(prev => ({ ...prev, text: textResult.generated_text }));
 
       // 画像生成
+      console.log('画像生成中...');
       const imageResult = await generateImage({
         prompt: textResult.image_prompt,
         style: 'watercolor',
         aspect_ratio: '1:1'
       });
+      console.log('画像生成成功:', imageResult);
 
-      setFuturePage(prev => ({ 
+      setPlanPage(prev => ({ 
         ...prev, 
         imageUrl: imageResult.signed_url || null,
         loading: false
       }));
 
     } catch (error) {
-      console.error('Future diary generation failed:', error);
-      setFuturePage(prev => ({ ...prev, loading: false }));
+      console.error('Plan generation failed:', error);
+      alert(`エラー: ${error.message}`);
+      setPlanPage(prev => ({ ...prev, loading: false }));
     }
   }
 
-  async function handleGenerateToday() {
-    if (!todayReflection.trim()) return;
+  async function handleGenerateActual() {
+    if (!actualReflection.trim()) return;
 
-    setTodayPage(prev => ({ ...prev, loading: true }));
+    console.log('実際の振り返り生成開始');
+    setActualPage(prev => ({ ...prev, loading: true }));
     try {
       // テキスト生成
+      console.log('実際テキスト生成中...');
       const textResult = await generateTodayReflection({
-        reflection_text: todayReflection,
+        reflection_text: actualReflection,
         style: 'diary'
       });
+      console.log('実際テキスト生成成功:', textResult);
 
-      setTodayPage(prev => ({ ...prev, text: textResult.generated_text }));
+      setActualPage(prev => ({ ...prev, text: textResult.generated_text }));
 
       // 画像生成
+      console.log('実際画像生成中...');
       const imageResult = await generateImage({
         prompt: textResult.image_prompt,
         style: 'watercolor',
         aspect_ratio: '1:1'
       });
+      console.log('実際画像生成成功:', imageResult);
 
-      setTodayPage(prev => ({ 
+      setActualPage(prev => ({ 
         ...prev, 
         imageUrl: imageResult.signed_url || null,
         loading: false
       }));
 
     } catch (error) {
-      console.error('Today reflection generation failed:', error);
-      setTodayPage(prev => ({ ...prev, loading: false }));
+      console.error('Actual reflection generation failed:', error);
+      alert(`エラー: ${error.message}`);
+      setActualPage(prev => ({ ...prev, loading: false }));
     }
   }
 
   function handleSuggestActivities() {
     const commonInterests = ['読書', '散歩', '映画鑑賞', 'ゲーム', '料理'];
     setInterests(commonInterests);
-    setFuturePlan('');
+    setPlan('');
+  }
+
+  // 日付を変更する関数
+  function handleDateChange(days: number) {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
+    // 日付変更時にデータをクリア（本来はローカルストレージから読み込み）
+    setPlan('');
+    setActualReflection('');
+    setPlanPage({ text: '', imageUrl: null, loading: false });
+    setActualPage({ text: '', imageUrl: null, loading: false });
+    setInterests([]);
   }
 
   return (
     <div className="min-h-screen bg-amber-50">
+      {/* ヘッダー・カレンダーナビゲーション */}
+      <div className="bg-white shadow-sm border-b border-gray-200 p-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-800">AI日記</h1>
+          
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => handleDateChange(-1)}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm"
+            >
+              ← 前日
+            </button>
+            
+            <div className="text-lg font-medium text-gray-700">
+              {selectedDate.toLocaleDateString('ja-JP', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                weekday: 'short'
+              })}
+            </div>
+            
+            <button 
+              onClick={() => handleDateChange(1)}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm"
+            >
+              翌日 →
+            </button>
+            
+            <button 
+              onClick={() => setSelectedDate(new Date())}
+              className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-sm"
+            >
+              今日
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* 見開きノートレイアウト */}
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white shadow-xl rounded-lg overflow-hidden">
+        <div className="bg-white shadow-xl rounded-lg overflow-hidden mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
             
-            {/* 左ページ：今日の振り返り */}
+            {/* 左ページ：予定 */}
             <div className="bg-white p-8 lg:border-r border-gray-200">
               <div className="text-center mb-6">
-                <div className="text-sm text-gray-500 mb-2">今日 {new Date().toLocaleDateString('ja-JP')}</div>
+                <div className="text-sm text-gray-500 mb-2">予定</div>
               </div>
             
               <div className="space-y-6">
                 <div>
                   <textarea
                     className="w-full border-none outline-none resize-none text-gray-700 placeholder-gray-400 leading-relaxed h-32"
-                    placeholder="今日の出来事を書いてください..."
-                    value={todayReflection}
-                    onChange={e => setTodayReflection(e.target.value)}
+                    placeholder="予定を書いてください..."
+                    value={plan}
+                    onChange={e => setPlan(e.target.value)}
                   />
                 </div>
                 
-                <button
-                  onClick={handleGenerateToday}
-                  disabled={!todayReflection.trim() || todayPage.loading}
-                  className="w-full bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 text-blue-800 font-medium py-2 px-4 rounded-md transition-colors text-sm"
-                >
-                  {todayPage.loading ? '生成中...' : '日記を作成'}
-                </button>
-              </div>
-
-              {/* 今日の日記表示エリア */}
-              {(todayPage.text || todayPage.imageUrl) && (
-                <div className="mt-8 space-y-6">
-                  {todayPage.imageUrl && (
-                    <div className="text-center">
-                      <Image 
-                        src={todayPage.imageUrl} 
-                        alt="今日の挿絵" 
-                        width={300}
-                        height={200}
-                        className="rounded-lg shadow-sm"
-                      />
-                    </div>
-                  )}
-                  {todayPage.text && (
-                    <div className="vertical-text text-gray-800 bg-transparent">
-                      {todayPage.text}
-                    </div>
-                  )}
-                </div>
-              )}
-          </div>
-
-            {/* 右ページ：未来日記 */}
-            <div className="bg-white p-8">
-              <div className="text-center mb-6">
-                <div className="text-sm text-gray-500 mb-2">明日 {new Date(Date.now() + 86400000).toLocaleDateString('ja-JP')}</div>
-              </div>
-            
-              <div className="space-y-6">
-                <div>
-                  <textarea
-                    className="w-full border-none outline-none resize-none text-gray-700 placeholder-gray-400 leading-relaxed h-24"
-                    placeholder="明日の予定を教えてください..."
-                    value={futurePlan}
-                    onChange={e => setFuturePlan(e.target.value)}
-                  />
-                </div>
-
                 <div className="text-center">
                   <span className="text-gray-400 text-sm">または</span>
                 </div>
@@ -191,31 +212,79 @@ export default function Home() {
                 )}
                 
                 <button
-                  onClick={handleGenerateFuture}
-                  disabled={(!futurePlan.trim() && interests.length === 0) || futurePage.loading}
-                  className="w-full bg-amber-100 hover:bg-amber-200 disabled:bg-gray-100 text-amber-800 font-medium py-2 px-4 rounded-md transition-colors text-sm"
+                  onClick={handleGeneratePlan}
+                  disabled={(!plan.trim() && interests.length === 0) || planPage.loading}
+                  className="w-full bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 text-blue-800 font-medium py-2 px-4 rounded-md transition-colors text-sm"
                 >
-                  {futurePage.loading ? '生成中...' : '未来日記を作成'}
+                  {planPage.loading ? '生成中...' : '予定日記を作成'}
                 </button>
               </div>
 
-              {/* 未来日記表示エリア */}
-              {(futurePage.text || futurePage.imageUrl) && (
+              {/* 予定日記表示エリア */}
+              {(planPage.text || planPage.imageUrl) && (
                 <div className="mt-8 space-y-6">
-                  {futurePage.imageUrl && (
+                  {planPage.imageUrl && (
                     <div className="text-center">
                       <Image 
-                        src={futurePage.imageUrl} 
-                        alt="未来の挿絵" 
+                        src={planPage.imageUrl} 
+                        alt="予定の挿絵" 
                         width={300}
                         height={200}
                         className="rounded-lg shadow-sm"
                       />
                     </div>
                   )}
-                  {futurePage.text && (
+                  {planPage.text && (
                     <div className="vertical-text text-gray-800 bg-transparent">
-                      {futurePage.text}
+                      {planPage.text}
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
+
+            {/* 右ページ：実際 */}
+            <div className="bg-white p-8">
+              <div className="text-center mb-6">
+                <div className="text-sm text-gray-500 mb-2">実際</div>
+              </div>
+            
+              <div className="space-y-6">
+                <div>
+                  <textarea
+                    className="w-full border-none outline-none resize-none text-gray-700 placeholder-gray-400 leading-relaxed h-32"
+                    placeholder="実際にあったことを書いてください..."
+                    value={actualReflection}
+                    onChange={e => setActualReflection(e.target.value)}
+                  />
+                </div>
+                
+                <button
+                  onClick={handleGenerateActual}
+                  disabled={!actualReflection.trim() || actualPage.loading}
+                  className="w-full bg-green-100 hover:bg-green-200 disabled:bg-gray-100 text-green-800 font-medium py-2 px-4 rounded-md transition-colors text-sm"
+                >
+                  {actualPage.loading ? '生成中...' : '実際日記を作成'}
+                </button>
+              </div>
+
+              {/* 実際日記表示エリア */}
+              {(actualPage.text || actualPage.imageUrl) && (
+                <div className="mt-8 space-y-6">
+                  {actualPage.imageUrl && (
+                    <div className="text-center">
+                      <Image 
+                        src={actualPage.imageUrl} 
+                        alt="実際の挿絵" 
+                        width={300}
+                        height={200}
+                        className="rounded-lg shadow-sm"
+                      />
+                    </div>
+                  )}
+                  {actualPage.text && (
+                    <div className="vertical-text text-gray-800 bg-transparent">
+                      {actualPage.text}
                     </div>
                   )}
                 </div>
