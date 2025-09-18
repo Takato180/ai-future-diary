@@ -6,7 +6,8 @@ python-multipart==0.0.20
 
 # --- google/vertex ai ---
 google-cloud-aiplatform==1.114.0
-google-cloud-storage<3.0.0   
+google-cloud-storage<3.0.0
+vertexai>=1.85.0   
 
 # --- utilities ---
 pydantic==2.11.9

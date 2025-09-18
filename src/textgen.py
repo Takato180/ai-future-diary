@@ -1,18 +1,30 @@
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import vertexai
-from vertexai.generative_models import GenerativeModel
 
 router = APIRouter(prefix="/text", tags=["text"])
+
+# Vertex AI の安全なimport
+try:
+    import vertexai
+    from vertexai.generative_models import GenerativeModel
+    VERTEX_AVAILABLE = True
+except ImportError as e:
+    print(f"Vertex AI import failed: {e}")
+    VERTEX_AVAILABLE = False
 
 PROJECT_ID = os.environ.get("PROJECT_ID")
 VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION", "us-central1")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-pro")
 
 # Vertex AI 初期化
-if PROJECT_ID and VERTEX_LOCATION:
-    vertexai.init(project=PROJECT_ID, location=VERTEX_LOCATION)
+if VERTEX_AVAILABLE and PROJECT_ID and VERTEX_LOCATION:
+    try:
+        vertexai.init(project=PROJECT_ID, location=VERTEX_LOCATION)
+        print("Vertex AI initialized successfully")
+    except Exception as e:
+        print(f"Vertex AI initialization failed: {e}")
+        VERTEX_AVAILABLE = False
 
 class FutureDiaryRequest(BaseModel):
     plan: str | None = None
@@ -28,6 +40,8 @@ class TextGenerateResponse(BaseModel):
     image_prompt: str
 
 def _get_gemini_model():
+    if not VERTEX_AVAILABLE:
+        raise HTTPException(500, "Vertex AI is not available")
     return GenerativeModel(GEMINI_MODEL)
 
 @router.post("/future-diary", response_model=TextGenerateResponse)

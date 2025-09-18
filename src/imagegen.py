@@ -3,11 +3,18 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from google.cloud import storage as gcs
-from google.cloud import aiplatform
-from vertexai.preview.vision_models import ImageGenerationModel
-import vertexai
 
 router = APIRouter(prefix="/image", tags=["image"])
+
+# Vertex AI の安全なimport
+try:
+    import vertexai
+    from vertexai.preview.vision_models import ImageGenerationModel
+    from google.cloud import aiplatform
+    VERTEX_AVAILABLE = True
+except ImportError as e:
+    print(f"Vertex AI import failed: {e}")
+    VERTEX_AVAILABLE = False
 
 PROJECT_ID = os.environ.get("PROJECT_ID")
 BUCKET_NAME = os.environ.get("BUCKET_NAME")
@@ -15,8 +22,13 @@ VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION", "us-central1")
 IMAGEN_MODEL = os.environ.get("IMAGEN_MODEL", "imagen-3.0-generate-001")
 
 # Vertex AI 初期化
-if PROJECT_ID and VERTEX_LOCATION:
-    vertexai.init(project=PROJECT_ID, location=VERTEX_LOCATION)
+if VERTEX_AVAILABLE and PROJECT_ID and VERTEX_LOCATION:
+    try:
+        vertexai.init(project=PROJECT_ID, location=VERTEX_LOCATION)
+        print("Vertex AI initialized successfully")
+    except Exception as e:
+        print(f"Vertex AI initialization failed: {e}")
+        VERTEX_AVAILABLE = False
 
 class ImageGenerateRequest(BaseModel):
     prompt: str
@@ -61,6 +73,8 @@ async def generate_image(request: ImageGenerateRequest):
     """
     Vertex AI Imagen 3を使用して画像を生成し、GCSに保存
     """
+    if not VERTEX_AVAILABLE:
+        raise HTTPException(500, "Vertex AI is not available")
     if not PROJECT_ID:
         raise HTTPException(500, "PROJECT_ID is not set")
     if not BUCKET_NAME:
