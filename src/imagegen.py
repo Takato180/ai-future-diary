@@ -51,22 +51,15 @@ def _upload_to_gcs(image_bytes: bytes, object_path: str, content_type: str = "im
     blob = bucket.blob(object_path)
     
     blob.upload_from_string(image_bytes, content_type=content_type)
+    
+    # パブリック読み取り可能に設定
+    blob.make_public()
+    
     return object_path
 
-def _generate_signed_url(object_path: str) -> str:
-    """署名付きGET URLを生成"""
-    from datetime import timedelta
-    
-    client = _get_storage_client()
-    bucket = client.bucket(BUCKET_NAME)
-    blob = bucket.blob(object_path)
-    
-    url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(hours=1),
-        method="GET"
-    )
-    return url
+def _generate_public_url(object_path: str) -> str:
+    """パブリックGET URLを生成"""
+    return f"https://storage.googleapis.com/{BUCKET_NAME}/{object_path}"
 
 @router.post("/generate", response_model=ImageGenerateResponse)
 async def generate_image(request: ImageGenerateRequest):
@@ -112,12 +105,12 @@ async def generate_image(request: ImageGenerateRequest):
         # GCSにアップロード
         _upload_to_gcs(image_bytes, object_path, "image/png")
         
-        # 署名付きURLを生成
-        signed_url = _generate_signed_url(object_path)
+        # パブリックURLを生成
+        public_url = _generate_public_url(object_path)
         
         return ImageGenerateResponse(
             path=object_path,
-            signed_url=signed_url
+            public_url=public_url
         )
         
     except Exception as e:
