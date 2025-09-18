@@ -24,3 +24,37 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 縦書きスタイル */
+.vertical-text {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  line-height: 2;
+  letter-spacing: 0.1em;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+  min-height: 200px;
+  padding: 1rem;
+  
+  /* 句読点の位置調整 */
+  text-combine-upright: digits 2;
+}
+
+/* 縦書き内の数字を縦に並べる */
+.vertical-text:lang(ja) {
+  font-feature-settings: "vert" 1;
+}
+
+/* 縦書きでの改行処理 */
+.vertical-text p {
+  margin-bottom: 1rem;
+}
+
+/* レスポンシブ対応：モバイルでは横書きに戻す */
+@media (max-width: 768px) {
+  .vertical-text {
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    line-height: 1.6;
+    letter-spacing: normal;
+  }
+}
