@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { 
   generateFutureDiary, 
   generateTodayReflection, 
@@ -144,9 +145,11 @@ export default function Home() {
               <div className="mt-6 space-y-4">
                 {todayPage.imageUrl && (
                   <div className="text-center">
-                    <img 
+                    <Image 
                       src={todayPage.imageUrl} 
                       alt="今日の挿絵" 
+                      width={400}
+                      height={256}
                       className="max-w-full h-64 object-cover rounded-lg mx-auto"
                     />
                   </div>
@@ -208,9 +211,11 @@ export default function Home() {
               <div className="mt-6 space-y-4">
                 {futurePage.imageUrl && (
                   <div className="text-center">
-                    <img 
+                    <Image 
                       src={futurePage.imageUrl} 
                       alt="未来の挿絵" 
+                      width={400}
+                      height={256}
                       className="max-w-full h-64 object-cover rounded-lg mx-auto"
                     />
                   </div>
