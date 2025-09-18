@@ -8,7 +8,7 @@ colorama==0.4.6
 fastapi==0.116.1
 google-api-core==2.25.1
 google-auth==2.40.3
-google-cloud-aiplatform==1.82.1
+google-cloud-aiplatform==1.114.0
 google-cloud-core==2.4.3
 google-cloud-storage==3.4.0
 google-crc32c==1.7.1
