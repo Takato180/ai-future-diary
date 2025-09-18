@@ -38,7 +38,7 @@ steps:
       - managed
       - --allow-unauthenticated
       - --set-env-vars
-      - PROJECT_ID=$PROJECT_ID,BUCKET_NAME=ai-future-diary,VERTEX_LOCATION=us-central1,IMAGEN_MODEL=imagen-3.0-generate-001,GEMINI_MODEL=gemini-1.5-pro,SERVICE_ACCOUNT_EMAIL=161189042531-compute@developer.gserviceaccount.com
+      - PROJECT_ID=$PROJECT_ID,BUCKET_NAME=ai-future-diary,VERTEX_LOCATION=us-central1,IMAGEN_MODEL=imagen-3.0-generate-001,GEMINI_MODEL=gemini-1.5-flash-002,SERVICE_ACCOUNT_EMAIL=161189042531-compute@developer.gserviceaccount.com
       - --quiet
 
 images:
