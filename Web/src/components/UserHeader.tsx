@@ -12,8 +12,6 @@ export default function UserHeader() {
   const [coverImageUrl, setCoverImageUrl] = useState(user?.coverImageUrl || '');
   const [showCoverModal, setShowCoverModal] = useState(false);
 
-  if (!user) return null;
-
   // ESCキーで表紙モーダルを閉じる
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -27,6 +25,8 @@ export default function UserHeader() {
       return () => document.removeEventListener('keydown', handleEscape);
     }
   }, [showCoverModal]);
+
+  if (!user) return null;
 
   const handleRegenerateCover = async () => {
     if (!token) return;

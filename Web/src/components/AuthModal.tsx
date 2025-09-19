@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import Image from 'next/image';
 
 interface AuthModalProps {
   isOpen: boolean;
