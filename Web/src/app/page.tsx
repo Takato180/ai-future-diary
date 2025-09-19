@@ -163,33 +163,49 @@ function DiaryApp() {
       // Update previous user ID
       setPreviousUserId(currentUserId);
 
-      // Load year data cache when user logs in
-      if (user?.userId) {
+      // Load multi-year data cache when user logs in (optimized for all user data)
+      if (user?.userId && isUserChange) {
         const currentYear = new Date().getFullYear();
-        const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
+        const years = [currentYear - 1, currentYear, currentYear + 1]; // Load 3 years
 
-        console.log('[DEBUG] Loading year cache for:', user.userId);
+        console.log('[DEBUG] Loading multi-year cache for:', user.userId);
 
-        try {
-          const cachedData = localStorage.getItem(cacheKey);
-          if (cachedData) {
-            const yearEntries = JSON.parse(cachedData);
-            setYearlyEntriesCache({ [currentYear.toString()]: yearEntries });
-            console.log('[DEBUG] Loaded cached year data:', yearEntries.length, 'entries');
-          } else {
-            // Load current year data from API
-            console.log('[DEBUG] Loading year data from API...');
-            getDiaryEntriesByYear(currentYear).then(yearEntries => {
-              setYearlyEntriesCache({ [currentYear.toString()]: yearEntries });
-              localStorage.setItem(cacheKey, JSON.stringify(yearEntries));
-              console.log('[DEBUG] Year data loaded and cached:', yearEntries.length, 'entries');
-            }).catch(error => {
-              console.error("Failed to load year data:", error);
-            });
+        const loadYearData = async () => {
+          const newCache: {[year: string]: DiaryEntry[]} = {};
+
+          for (const year of years) {
+            const cacheKey = `yearEntries_${user.userId}_${year}`;
+
+            try {
+              const cachedData = localStorage.getItem(cacheKey);
+              if (cachedData) {
+                const yearEntries = JSON.parse(cachedData);
+                newCache[year.toString()] = yearEntries;
+                console.log(`[DEBUG] Loaded cached data for ${year}:`, yearEntries.length, 'entries');
+              } else {
+                // Load year data from API
+                console.log(`[DEBUG] Loading ${year} data from API...`);
+                try {
+                  const yearEntries = await getDiaryEntriesByYear(year);
+                  newCache[year.toString()] = yearEntries;
+                  localStorage.setItem(cacheKey, JSON.stringify(yearEntries));
+                  console.log(`[DEBUG] Year ${year} data loaded and cached:`, yearEntries.length, 'entries');
+                } catch (error) {
+                  console.error(`Failed to load ${year} data:`, error);
+                  newCache[year.toString()] = []; // Set empty array as fallback
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to load cache for ${year}:`, error);
+              newCache[year.toString()] = [];
+            }
           }
-        } catch (error) {
-          console.error("Failed to load cached year data:", error);
-        }
+
+          setYearlyEntriesCache(newCache);
+          console.log('[DEBUG] Multi-year data cache loaded:', Object.keys(newCache).length, 'years');
+        };
+
+        loadYearData();
       }
 
       // Load user-specific persistent data
@@ -255,54 +271,80 @@ function DiaryApp() {
           entry = await getDiaryEntry(selectedDateString);
         }
         if (entry) {
+          console.log('[DEBUG] Restoring complete entry data:', entry);
           setSavedEntry(entry);
+
+          // Restore plan data completely
           if (entry.planText) {
             setPlanPage(prev => ({ ...prev, text: entry.planText || "" }));
-            if (entry.planImageUrl) {
-              setPlanPage(prev => ({ ...prev, imageUrl: entry.planImageUrl || null }));
-            }
           }
+          if (entry.planImageUrl) {
+            setPlanPage(prev => ({ ...prev, imageUrl: entry.planImageUrl || null }));
+            // Clear any uploaded images since we have saved URLs
+            setPlanImageUpload(null);
+            setPlanImagePreview(null);
+          }
+
+          // Restore actual data completely
           if (entry.actualText) {
             setActualPage(prev => ({ ...prev, text: entry.actualText || "" }));
-            if (entry.actualImageUrl) {
-              setActualPage(prev => ({ ...prev, imageUrl: entry.actualImageUrl || null }));
-            }
           }
+          if (entry.actualImageUrl) {
+            setActualPage(prev => ({ ...prev, imageUrl: entry.actualImageUrl || null }));
+            // Clear any uploaded images since we have saved URLs
+            setActualImageUpload(null);
+            setActualImagePreview(null);
+          }
+
+          // Restore diff summary
           if (entry.diffText) {
             setAiDiffSummary(entry.diffText);
           }
-          if (entry.tags) {
-            // Separate tags for plan and actual (for now, show all tags in plan)
+
+          // Restore tags
+          if (entry.tags && entry.tags.length > 0) {
             setPlanTags(entry.tags);
             setActualTags([]);
           }
+
+          // Restore input prompts to input fields (always restore for editing)
           if (entry.planInputPrompt) {
             setPlanInputHistory(entry.planInputPrompt);
-            // 生成済みのテキストがない場合は入力プロンプトを復元
-            if (!entry.planText) {
-              setPlanInput(entry.planInputPrompt);
-            }
+            setPlanInput(entry.planInputPrompt); // Always restore for editing
           }
           if (entry.actualInputPrompt) {
             setActualInputHistory(entry.actualInputPrompt);
-            // 生成済みのテキストがない場合は入力プロンプトを復元
-            if (!entry.actualText) {
-              setActualInput(entry.actualInputPrompt);
-            }
+            setActualInput(entry.actualInputPrompt); // Always restore for editing
           }
+
+          console.log('[DEBUG] Entry data restoration completed');
         } else {
           // No entry found - this is expected for new dates
+          console.log('[DEBUG] No entry found for date:', selectedDateString);
           setSavedEntry(null);
           setAiDiffSummary("");
+
+          // Clear all page content for new dates
+          setPlanPage({ text: "", imageUrl: null, loading: false });
+          setActualPage({ text: "", imageUrl: null, loading: false });
+
+          // Clear input fields and histories for new dates
+          setPlanInput("");
+          setActualInput("");
+          setPlanInputHistory("");
+          setActualInputHistory("");
+
           // Clear uploaded images for new dates
           setPlanImageUpload(null);
           setActualImageUpload(null);
           setPlanImagePreview(null);
           setActualImagePreview(null);
-          // Clear input histories for new dates
-          setPlanInputHistory("");
-          setActualInputHistory("");
-          // Don't clear tags here - keep them for new entries
+
+          // Clear tags for new dates
+          setPlanTags([]);
+          setActualTags([]);
+
+          console.log('[DEBUG] Date cleared for new entry');
         }
       } catch (error) {
         console.error("Failed to load entry:", error);

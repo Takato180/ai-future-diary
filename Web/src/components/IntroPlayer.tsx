@@ -1,29 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getIntroConfig, markIntroSeen, generateIntroVideo, getVideoStatus } from '@/lib/api';
+import { getIntroConfig, markIntroSeen, getVideoStatus } from '@/lib/api';
 
 export default function IntroPlayer({ token }: { token?: string }) {
   const [url, setUrl] = useState<string>('');
-  const [version, setVersion] = useState<number>(0);
   const [show, setShow] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [loading, setLoading] = useState(true);
   const [useAnimationFallback, setUseAnimationFallback] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationError, setGenerationError] = useState<string>('');
 
   useEffect(() => {
     (async () => {
       try {
-        // まずデフォルト動画を取得
-        const { url, version } = await getIntroConfig();
+        // デフォルト動画を取得（全ユーザー共通）
+        const { url } = await getIntroConfig();
         setUrl(url);
-        setVersion(version);
 
-        const key = `intro_seen_v${version}`;
-        if (!localStorage.getItem(key)) {
+        // 毎回表示する（セッションごとに1回）
+        if (!sessionStorage.getItem('intro_shown_this_session')) {
           setShow(true);
+          sessionStorage.setItem('intro_shown_this_session', '1');
         }
 
         // 認証ユーザーの場合、特別動画があるかチェック（7日間連続記録後の特別動画用）
@@ -33,12 +30,6 @@ export default function IntroPlayer({ token }: { token?: string }) {
             // 7日間連続記録後の特別動画が生成済みの場合のみ切り替え
             if (status.intro_video_generated && status.intro_video_url && status.status === 'special') {
               setUrl(status.intro_video_url);
-              setVersion(2); // 特別動画はversion 2
-
-              const specialKey = `intro_seen_special_${status.generation_id}`;
-              if (!localStorage.getItem(specialKey)) {
-                setShow(true);
-              }
             }
           } catch (e) {
             console.error('Failed to check special video:', e);
@@ -49,9 +40,9 @@ export default function IntroPlayer({ token }: { token?: string }) {
         console.error('Failed to load intro config:', e);
         // エラーの場合はアニメーションフォールバックを使用
         setUseAnimationFallback(true);
-        const key = `intro_seen_v1_fallback`;
-        if (!localStorage.getItem(key)) {
+        if (!sessionStorage.getItem('intro_shown_this_session')) {
           setShow(true);
+          sessionStorage.setItem('intro_shown_this_session', '1');
         }
       } finally {
         setLoading(false);
@@ -61,14 +52,11 @@ export default function IntroPlayer({ token }: { token?: string }) {
 
   const finish = async () => {
     try {
-      if (dontShowAgain && !useAnimationFallback) {
+      if (dontShowAgain && !useAnimationFallback && token) {
         await markIntroSeen(true, token);
       }
-      if (useAnimationFallback) {
-        localStorage.setItem('intro_seen_v1_fallback', '1');
-      } else {
-        localStorage.setItem(`intro_seen_v${version}`, '1');
-      }
+      // セッション内での再表示は防ぐが、次回ログイン時は表示する
+      sessionStorage.setItem('intro_finished_this_session', '1');
     } catch (e) {
       console.error('Failed to mark intro as seen:', e);
     } finally {
@@ -84,7 +72,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl">
+      <div className="relative w-full max-w-md">
         {/* 閉じるボタン */}
         <button
           onClick={finish}
@@ -95,7 +83,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
 
         {useAnimationFallback ? (
           // CSS アニメーションフォールバック (または Veo 生成中)
-          <div className="w-full h-[50vh] bg-gradient-to-br from-blue-900 via-purple-900 to-blue-800 rounded-2xl shadow-2xl flex items-center justify-center relative overflow-hidden">
+          <div className="w-full h-80 bg-gradient-to-br from-blue-900 via-purple-900 to-blue-800 rounded-2xl shadow-2xl flex items-center justify-center relative overflow-hidden">
             {/* Background animation */}
             <div className="absolute inset-0 opacity-30">
               <div className="absolute top-10 left-10 w-20 h-20 bg-white/20 rounded-full animate-bounce"></div>
@@ -107,19 +95,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
             <div className="text-center z-10">
               <div className="mb-8">
                 <h1 className="text-4xl font-bold text-white mb-4 animate-fade-in">✨ AI未来日記 ✨</h1>
-                <p className="text-xl text-blue-200 animate-fade-in-delay">
-                  {isGenerating ? '魔法の動画を生成中...' : 'あなただけの魔法の日記帳'}
-                </p>
-                {isGenerating && (
-                  <div className="mt-4 flex items-center justify-center space-x-2">
-                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-                  </div>
-                )}
-                {generationError && (
-                  <p className="mt-4 text-red-300 text-sm animate-fade-in">{generationError}</p>
-                )}
+                <p className="text-xl text-blue-200 animate-fade-in-delay">あなただけの魔法の日記帳</p>
               </div>
 
               <div className="space-y-4 text-white/90">
@@ -131,9 +107,8 @@ export default function IntroPlayer({ token }: { token?: string }) {
               <button
                 onClick={finish}
                 className="mt-8 px-8 py-3 bg-white/20 hover:bg-white/30 border border-white/30 rounded-full text-white font-medium transition-all duration-300 backdrop-blur-sm animate-bounce-slow"
-                disabled={isGenerating}
               >
-                {isGenerating ? '生成中...' : '日記を始める →'}
+                日記を始める →
               </button>
             </div>
 
@@ -179,7 +154,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
           <video
             key={url}
             src={url}
-            className="w-full max-h-[80vh] rounded-2xl shadow-2xl"
+            className="w-full h-80 rounded-2xl shadow-2xl object-cover"
             autoPlay
             muted
             playsInline
