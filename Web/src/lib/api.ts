@@ -139,7 +139,10 @@ export async function getDiaryEntry(date: string, userId: string = 'anonymous'):
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const r = await fetch(`${API}/diary/entries/${date}?user_id=${userId}`, {
+  // 認証済みの場合はuser_idクエリパラメータを送らない（JWTから自動取得）
+  const url = token ? `${API}/diary/entries/${date}` : `${API}/diary/entries/${date}?user_id=${userId}`;
+
+  const r = await fetch(url, {
     headers,
   });
   if (r.status === 404) return null;
@@ -155,7 +158,10 @@ export async function getDiaryEntriesByMonth(month: string, userId: string = 'an
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const r = await fetch(`${API}/diary/entries?month=${month}&user_id=${userId}`, {
+  // 認証済みの場合はuser_idクエリパラメータを送らない（JWTから自動取得）
+  const url = token ? `${API}/diary/entries?month=${month}` : `${API}/diary/entries?month=${month}&user_id=${userId}`;
+
+  const r = await fetch(url, {
     headers,
   });
   if (!r.ok) throw new Error(await r.text());
@@ -172,7 +178,10 @@ export async function generateDiffSummary(date: string, userId: string = 'anonym
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const r = await fetch(`${API}/diary/entries/${date}/diff?user_id=${userId}`, {
+  // 認証済みの場合はuser_idクエリパラメータを送らない（JWTから自動取得）
+  const url = token ? `${API}/diary/entries/${date}/diff` : `${API}/diary/entries/${date}/diff?user_id=${userId}`;
+
+  const r = await fetch(url, {
     method: 'POST',
     headers,
   });

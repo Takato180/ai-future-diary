@@ -67,8 +67,8 @@ async def get_entry(
         # 日付フォーマットチェック
         datetime.strptime(date, "%Y-%m-%d")
 
-        # ユーザーIDを決定（認証済みの場合は現在のユーザー、クエリパラメータがあればそれを使用、デフォルトはanonymous）
-        effective_user_id = current_user_id or user_id or "anonymous"
+        # ユーザーIDを決定（認証済みの場合は現在のユーザーを優先、未認証の場合のみクエリパラメータかデフォルト値を使用）
+        effective_user_id = current_user_id if current_user_id else (user_id or "anonymous")
 
         entry = await get_diary_entry(effective_user_id, date)
         return entry
@@ -95,8 +95,8 @@ async def get_entries_by_month(
         # 月フォーマットチェック
         datetime.strptime(f"{month}-01", "%Y-%m-%d")
 
-        # ユーザーIDを決定
-        effective_user_id = current_user_id or user_id or "anonymous"
+        # ユーザーIDを決定（認証済みの場合は現在のユーザーを優先、未認証の場合のみクエリパラメータかデフォルト値を使用）
+        effective_user_id = current_user_id if current_user_id else (user_id or "anonymous")
 
         entries = await get_diary_entries_by_month(effective_user_id, month)
         return entries
@@ -123,8 +123,8 @@ async def create_diff_summary(
         # 日付フォーマットチェック
         datetime.strptime(date, "%Y-%m-%d")
 
-        # ユーザーIDを決定
-        effective_user_id = current_user_id or user_id or "anonymous"
+        # ユーザーIDを決定（認証済みの場合は現在のユーザーを優先、未認証の場合のみクエリパラメータかデフォルト値を使用）
+        effective_user_id = current_user_id if current_user_id else (user_id or "anonymous")
 
         # エントリを取得
         entry = await get_diary_entry(effective_user_id, date)
