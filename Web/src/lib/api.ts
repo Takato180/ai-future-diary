@@ -11,6 +11,27 @@ export async function getSignedUrl(path: string, method: 'GET'|'PUT', contentTyp
   return (await r.json()).signed_url as string;
 }
 
+export async function uploadImageFile(file: File, path: string): Promise<string> {
+  // Get signed URL for upload
+  const signedUrl = await getSignedUrl(path, 'PUT', file.type);
+
+  // Upload file to signed URL
+  const uploadResponse = await fetch(signedUrl, {
+    method: 'PUT',
+    body: file,
+    headers: {
+      'Content-Type': file.type,
+    },
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error('Failed to upload image');
+  }
+
+  // Return public URL
+  return `${API}/storage/files/${path}`;
+}
+
 // Text Generation API
 export interface FutureDiaryRequest {
   plan?: string;
