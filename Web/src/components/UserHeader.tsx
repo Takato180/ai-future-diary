@@ -204,10 +204,12 @@ export default function UserHeader() {
               </svg>
             </button>
 
-            {/* 拡大画像 - imgタグで直接サイズ指定 */}
-            <img
+            {/* 拡大画像 - Next.js Image component */}
+            <Image
               src={coverImageUrl}
               alt={`${user.userName}さんの日記帳表紙（拡大表示）`}
+              width={800}
+              height={600}
               className="max-w-[92vw] max-h-[85vh] object-contain rounded-2xl shadow-2xl"
             />
 

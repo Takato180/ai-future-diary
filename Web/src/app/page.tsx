@@ -26,8 +26,6 @@ type DiaryPageState = {
   loading: boolean;
 };
 
-const INTEREST_PRESETS = ["読書", "散歩", "映画鑑賞", "カフェ", "ストレッチ"];
-
 function cleanMarkdownArtifacts(text: string): string {
   return text
     .replace(/\*\*/g, '') // Remove bold markdown
@@ -282,7 +280,7 @@ function DiaryApp() {
     setActualImageUpload(null);
     setPlanImagePreview(null);
     setActualImagePreview(null);
-  }, [selectedDateString, user?.userId, isLoading]); // Also trigger when user changes
+  }, [selectedDateString, user, isLoading]); // Also trigger when user changes
 
   // Load monthly entries for calendar (optimized with cache)
   useEffect(() => {
@@ -313,7 +311,7 @@ function DiaryApp() {
       }
     }
     loadMonthlyEntries();
-  }, [selectedDate, showCalendar, user?.userId, isLoading, yearlyEntriesCache]);
+  }, [selectedDate, showCalendar, user, isLoading, yearlyEntriesCache]);
 
   // Auto load activity suggestions for empty plan days (optimized)
   useEffect(() => {
@@ -335,7 +333,7 @@ function DiaryApp() {
     // 予定が空の場合のみ、少し遅延を入れて自動提案を読み込む
     const timer = setTimeout(loadAutoSuggestions, 1500); // Slightly longer delay
     return () => clearTimeout(timer);
-  }, [user?.userId, planInput, planPage.text, selectedDateString, loading, isLoading]);
+  }, [user, planInput, planPage.text, selectedDateString, loading, isLoading]);
 
   async function handleGeneratePlan() {
     setPlanPage((prev) => ({ ...prev, loading: true }));
@@ -373,7 +371,7 @@ function DiaryApp() {
       // Save to database
       await saveToDiary({
         planText: textResult.generated_text,
-        planImageUrl: imageResult.public_url,
+        planImageUrl: imageUrl || undefined,
       });
     } catch (error) {
       console.error("Plan generation failed", error);
@@ -418,7 +416,7 @@ function DiaryApp() {
       // Save to database
       await saveToDiary({
         actualText: textResult.generated_text,
-        actualImageUrl: imageResult.public_url,
+        actualImageUrl: imageUrl || undefined,
       });
     } catch (error) {
       console.error("Reflection generation failed", error);
