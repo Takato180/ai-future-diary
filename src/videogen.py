@@ -250,6 +250,136 @@ async def get_video_status(user_id: str = Depends(get_current_user_required)):
         print(f"Failed to get video status: {e}")
         raise HTTPException(status_code=500, detail="動画状態の取得に失敗しました")
 
+@router.post("/generate-special", response_model=VideoGenerateResponse)
+async def generate_special_video(user_id: str = Depends(get_current_user_required)):
+    """7日間連続記録達成後の特別動画を生成"""
+    try:
+        # ユーザー情報を取得
+        user = await get_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+
+        # 7日間連続記録の確認（diary APIから）
+        from .diary import check_streak
+        try:
+            streak_result = await check_streak(user_id)
+            if not streak_result.get("has_seven_day_streak"):
+                raise HTTPException(status_code=400, detail="7日間連続記録が必要です")
+        except Exception as e:
+            print(f"Failed to check streak: {e}")
+            raise HTTPException(status_code=500, detail="ストリークチェックに失敗しました")
+
+        # 既に特別動画が生成済みかチェック
+        existing_generation = await _check_video_generation_status(user_id)
+        if existing_generation and existing_generation.get("status") == "special":
+            return VideoGenerateResponse(
+                video_url=existing_generation["video_url"],
+                prompt_used="Previously generated special video",
+                generation_id=existing_generation["generation_id"]
+            )
+
+        # 特別なアルバム動画プロンプトを生成
+        special_prompt = f"""
+Create an enchanting, personalized journey video for {user.userName} who has achieved 7 consecutive days of diary writing.
+
+Scene: A magical photo album that comes to life, celebrating their dedicated journal journey
+- Begin with an elegant, leather-bound photo album opening with golden light
+- The album pages turn gracefully, each page representing a day from their 7-day journey
+- Each page shows beautiful, dreamy illustrations representing daily life moments
+- Show scenes of daily activities: morning routines, work, meals, evening reflections
+- Magical transitions between pages with sparkles and light particles
+- The final page shows all 7 days in a beautiful collage format
+- End with the album closing and a congratulatory message appearing in golden letters
+- Include vibrant colors: {', '.join(user.favorite_colors) if user.favorite_colors else 'warm earth tones'}
+- Seasonal elements: {user.favorite_season if user.favorite_season else 'universal seasonal beauty'}
+- Atmosphere: Celebratory, personal, magical, inspiring - like a personal achievement showcase
+- Duration: 12 seconds (longer to showcase the journey)
+- Style: High-quality cinematic animation with personal photo album aesthetic
+
+This video celebrates {user.userName}'s dedication to capturing life's moments through their AI future diary.
+"""
+
+        # プロフィール情報に基づく追加要素
+        if user.occupation:
+            special_prompt += f"\n- Include subtle elements related to their occupation: {user.occupation}"
+
+        if user.hobbies:
+            special_prompt += f"\n- Incorporate hobby-related imagery: {user.hobbies}"
+
+        if user.living_area and user.prefecture:
+            special_prompt += f"\n- Include local landscape elements from {user.prefecture}, {user.living_area}"
+
+        # 一意のファイル名を生成
+        generation_id = str(uuid.uuid4())
+        filename = f"special_{user_id}_{generation_id}.mp4"
+
+        print(f"[VIDEO] Generating special album video for user {user_id}")
+        print(f"[VIDEO] Special Generation ID: {generation_id}")
+
+        # 特別動画生成開始をマーク
+        await _mark_special_video_generation_started(user_id, generation_id)
+
+        try:
+            # Veo APIを呼び出して特別動画を生成（12秒）
+            video_data = await _call_veo_api(special_prompt, duration=12)
+
+            # GCSにアップロード
+            video_url = await _upload_video_to_gcs(video_data, filename)
+
+            # 特別動画生成完了をマーク
+            await _mark_special_video_generation_completed(user_id, generation_id, video_url)
+
+            print(f"[VIDEO] Successfully generated special album video: {video_url}")
+
+            return VideoGenerateResponse(
+                video_url=video_url,
+                prompt_used=special_prompt,
+                generation_id=generation_id
+            )
+
+        except Exception as video_error:
+            print(f"[VIDEO] Special video generation failed: {video_error}")
+            # 失敗した場合は生成状態をクリア
+            try:
+                doc_ref = db.collection("video_generations").document(user_id)
+                doc_ref.delete()
+            except:
+                pass
+            raise video_error
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Special video generation failed: {e}")
+        raise HTTPException(status_code=500, detail="特別動画生成に失敗しました")
+
+async def _mark_special_video_generation_started(user_id: str, generation_id: str) -> None:
+    """特別動画生成開始をマーク"""
+    try:
+        doc_ref = db.collection("video_generations").document(user_id)
+        doc_ref.set({
+            "generation_id": generation_id,
+            "status": "generating_special",
+            "started_at": datetime.now(timezone.utc),
+            "completed_at": None,
+            "video_url": None,
+            "video_type": "special"
+        })
+    except Exception as e:
+        print(f"Failed to mark special video generation started: {e}")
+
+async def _mark_special_video_generation_completed(user_id: str, generation_id: str, video_url: str) -> None:
+    """特別動画生成完了をマーク"""
+    try:
+        doc_ref = db.collection("video_generations").document(user_id)
+        doc_ref.update({
+            "status": "special",
+            "completed_at": datetime.now(timezone.utc),
+            "video_url": video_url
+        })
+    except Exception as e:
+        print(f"Failed to mark special video generation completed: {e}")
+
 # 開発・テスト用: 動画生成をトリガーするエンドポイント（後で削除予定）
 @router.post("/trigger-generation")
 async def trigger_video_generation():

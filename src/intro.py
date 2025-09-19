@@ -9,7 +9,7 @@ from .auth import get_current_user
 
 router = APIRouter(prefix="/intro", tags=["intro"])
 
-DEFAULT_URL = os.getenv("DEFAULT_INTRO_VIDEO_URL", "")
+DEFAULT_URL = os.getenv("DEFAULT_INTRO_VIDEO_URL", "https://storage.googleapis.com/ai-future-diary/default_login.mp4")
 VERSION = int(os.getenv("INTRO_VIDEO_VERSION", "1"))
 
 class SeenPayload(BaseModel):

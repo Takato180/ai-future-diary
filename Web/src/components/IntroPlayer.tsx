@@ -16,60 +16,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
   useEffect(() => {
     (async () => {
       try {
-        // 認証されているユーザーには個人用動画生成を試行
-        if (token) {
-          try {
-            // まず現在の動画状態をチェック
-            const status = await getVideoStatus(token);
-
-            if (status.intro_video_generated && status.intro_video_url) {
-              // 個人用動画が既に生成済み
-              setUrl(status.intro_video_url);
-              setVersion(1); // 個人用動画は常にversion 1
-
-              const key = `intro_seen_personal_${status.generation_id}`;
-              if (!localStorage.getItem(key)) {
-                setShow(true);
-              }
-              setLoading(false);
-              return;
-            } else if (status.status === 'generating') {
-              // 現在生成中
-              setIsGenerating(true);
-              setUseAnimationFallback(true);
-              setShow(true);
-              setLoading(false);
-              return;
-            } else {
-              // 個人用動画が未生成 → 生成を開始
-              setIsGenerating(true);
-              setUseAnimationFallback(true);
-              setShow(true);
-
-              try {
-                const result = await generateIntroVideo(token);
-                setUrl(result.video_url);
-                setIsGenerating(false);
-                setUseAnimationFallback(false);
-
-                const key = `intro_seen_personal_${result.generation_id}`;
-                localStorage.setItem(key, '1');
-              } catch (genError) {
-                console.error('Video generation failed:', genError);
-                setGenerationError('動画生成に失敗しました。次回お試しください。');
-                setIsGenerating(false);
-                // フォールバックアニメーションを継続使用
-              }
-              setLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.error('Failed to check/generate personal video:', e);
-            // 個人用動画失敗時は共通動画にフォールバック
-          }
-        }
-
-        // 非認証ユーザーまたは個人用動画失敗時の共通動画ロジック
+        // まずデフォルト動画を取得
         const { url, version } = await getIntroConfig();
         setUrl(url);
         setVersion(version);
@@ -77,6 +24,26 @@ export default function IntroPlayer({ token }: { token?: string }) {
         const key = `intro_seen_v${version}`;
         if (!localStorage.getItem(key)) {
           setShow(true);
+        }
+
+        // 認証ユーザーの場合、特別動画があるかチェック（7日間連続記録後の特別動画用）
+        if (token) {
+          try {
+            const status = await getVideoStatus(token);
+            // 7日間連続記録後の特別動画が生成済みの場合のみ切り替え
+            if (status.intro_video_generated && status.intro_video_url && status.status === 'special') {
+              setUrl(status.intro_video_url);
+              setVersion(2); // 特別動画はversion 2
+
+              const specialKey = `intro_seen_special_${status.generation_id}`;
+              if (!localStorage.getItem(specialKey)) {
+                setShow(true);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to check special video:', e);
+            // エラーの場合はデフォルト動画を継続使用
+          }
         }
       } catch (e) {
         console.error('Failed to load intro config:', e);

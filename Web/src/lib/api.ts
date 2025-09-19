@@ -430,3 +430,34 @@ export async function getVideoStatus(token: string): Promise<VideoStatusResponse
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+export async function generateSpecialVideo(token: string): Promise<VideoGenerateResponse> {
+  const r = await fetch(`${API}/video/generate-special`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// Diary Streak API
+export interface StreakCheckResponse {
+  has_seven_day_streak: boolean;
+  streak_dates?: string[];
+  latest_streak_date?: string;
+  current_streak?: number;
+  total_entries: number;
+  needed_for_seven?: number;
+}
+
+export async function checkStreak(token: string): Promise<StreakCheckResponse> {
+  const r = await fetch(`${API}/diary/streak-check`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}

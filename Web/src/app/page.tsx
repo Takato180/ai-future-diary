@@ -309,12 +309,6 @@ function DiaryApp() {
       }
     }
     loadEntry();
-
-    // Clear uploaded images when date changes (separate effect for reliability)
-    setPlanImageUpload(null);
-    setActualImageUpload(null);
-    setPlanImagePreview(null);
-    setActualImagePreview(null);
   }, [selectedDateString, user, isLoading, yearlyEntriesCache]); // Also trigger when user changes
 
   // Load monthly entries for calendar (optimized with cache)

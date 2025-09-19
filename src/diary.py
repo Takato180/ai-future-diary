@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from .db import (
     DiaryEntryCreate,
     DiaryEntryResponse,
@@ -8,7 +8,8 @@ from .db import (
     get_diary_entry,
     get_diary_entries_by_month,
     generate_diff_summary,
-    get_firestore_status
+    get_firestore_status,
+    get_diary_entries_by_year
 )
 from .auth import get_current_user
 
@@ -227,3 +228,78 @@ async def test_connection():
             "status": "error",
             "error": str(e)
         }
+
+def _check_consecutive_days(entries: List[DiaryEntryResponse], target_days: int = 7) -> Optional[List[str]]:
+    """連続記録日数をチェック"""
+    if len(entries) < target_days:
+        return None
+
+    # 日付でソート（最新順）
+    sorted_entries = sorted(entries, key=lambda x: x.date, reverse=True)
+
+    # 実際のテキストが入力されているエントリのみを対象
+    valid_entries = [e for e in sorted_entries if e.actualText and e.actualText.strip()]
+
+    if len(valid_entries) < target_days:
+        return None
+
+    # 連続する日付かチェック
+    for i in range(target_days - 1):
+        current_date = datetime.strptime(valid_entries[i].date, "%Y-%m-%d").date()
+        next_date = datetime.strptime(valid_entries[i + 1].date, "%Y-%m-%d").date()
+
+        if (current_date - next_date).days != 1:
+            return None
+
+    # 連続する7日間の日付を返す
+    return [entry.date for entry in valid_entries[:target_days]]
+
+@router.get("/streak-check")
+async def check_streak(
+    current_user_id: Optional[str] = Depends(get_current_user)
+):
+    """7日間連続記録をチェック"""
+    try:
+        if not current_user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+        # 現在の年の全エントリを取得
+        current_year = datetime.now().year
+        entries = await get_diary_entries_by_year(current_user_id, current_year)
+
+        # 7日間連続記録をチェック
+        streak_dates = _check_consecutive_days(entries, 7)
+
+        if streak_dates:
+            return {
+                "has_seven_day_streak": True,
+                "streak_dates": streak_dates,
+                "latest_streak_date": streak_dates[0],
+                "total_entries": len(entries)
+            }
+        else:
+            # 現在の連続記録日数も計算
+            current_streak = 0
+            valid_entries = [e for e in sorted(entries, key=lambda x: x.date, reverse=True)
+                           if e.actualText and e.actualText.strip()]
+
+            if valid_entries:
+                today = datetime.now().date()
+                for i, entry in enumerate(valid_entries):
+                    entry_date = datetime.strptime(entry.date, "%Y-%m-%d").date()
+                    expected_date = today - timedelta(days=i)
+
+                    if entry_date == expected_date:
+                        current_streak += 1
+                    else:
+                        break
+
+            return {
+                "has_seven_day_streak": False,
+                "current_streak": current_streak,
+                "total_entries": len(entries),
+                "needed_for_seven": max(0, 7 - current_streak)
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check streak: {str(e)}")
