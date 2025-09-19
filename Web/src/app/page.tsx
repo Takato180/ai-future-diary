@@ -424,7 +424,19 @@ function DiaryApp() {
 
         {showCalendar && (
           <section className="rounded-3xl bg-white/80 p-6 shadow-lg backdrop-blur">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">カレンダー</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800">カレンダー</h2>
+              <div className="flex items-center gap-4 text-xs text-slate-600">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  <span>予定のみ</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span>記録済み</span>
+                </div>
+              </div>
+            </div>
             <div className="grid grid-cols-7 gap-2 text-center">
               {['日', '月', '火', '水', '木', '金', '土'].map(day => (
                 <div key={day} className="p-2 text-sm font-medium text-slate-600">
