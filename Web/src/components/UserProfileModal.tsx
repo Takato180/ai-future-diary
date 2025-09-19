@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { updateUserProfile, UserProfileUpdate } from '@/lib/api';
 
@@ -44,6 +45,20 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
     }
   }, [user]);
 
+  // ESCキーでモーダルを閉じる
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,21 +99,52 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
   const colorOptions = ['赤', '青', '緑', '黄', 'ピンク', '紫', 'オレンジ', '茶', '黒', '白'];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">
-            プロフィール編集
-          </h2>
-          <p className="text-slate-600 text-sm">
-            絵日記の精度向上のために、あなたのことを教えてください
-          </p>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl p-8 w-full max-w-4xl my-8 shadow-2xl relative">
+        {/* 閉じるボタン */}
+        <button
+          onClick={onClose}
+          className="absolute top-6 right-6 w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors z-10"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* ヘッダー部分 */}
+        <div className="flex items-center justify-center mb-8">
+          {/* 表紙画像 */}
+          {user?.coverImageUrl && (
+            <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-blue-200 shadow-lg mr-6">
+              <Image
+                src={user.coverImageUrl}
+                alt={`${user.userName}さんの日記帳表紙`}
+                width={96}
+                height={96}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-slate-800 mb-2">
+              {user?.userName}さんのプロフィール
+            </h2>
+            <p className="text-slate-600 text-lg">
+              絵日記の精度向上のために、あなたのことを教えてください
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-8">
           {/* 基本情報 */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-700 border-b border-slate-200 pb-2">基本情報</h3>
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700 border-b border-blue-200 pb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              基本情報
+            </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -158,8 +204,13 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
           </div>
 
           {/* ライフスタイル */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-700 border-b border-slate-200 pb-2">ライフスタイル</h3>
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700 border-b border-green-200 pb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              </svg>
+              ライフスタイル
+            </h3>
 
             <div>
               <label htmlFor="hobbies" className="block text-sm font-medium text-slate-700 mb-2">
@@ -234,8 +285,13 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
           </div>
 
           {/* 好み・特性 */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-700 border-b border-slate-200 pb-2">好み・特性</h3>
+          <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700 border-b border-pink-200 pb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              好み・特性
+            </h3>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-3">
@@ -302,26 +358,26 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
             </div>
           )}
 
-          <div className="flex gap-4 pt-4">
+          <div className="flex gap-4 pt-8 border-t border-slate-200">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-slate-200 text-slate-700 py-3 px-4 rounded-2xl font-semibold transition hover:bg-slate-300"
+              className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 py-4 px-6 rounded-2xl font-semibold transition hover:from-gray-300 hover:to-gray-400 shadow-lg"
             >
               キャンセル
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-blue-500 text-white py-3 px-4 rounded-2xl font-semibold transition hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed"
+              className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 px-6 rounded-2xl font-semibold transition hover:from-blue-600 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   更新中...
                 </span>
               ) : (
-                '更新する'
+                '✨ プロフィールを更新する'
               )}
             </button>
           </div>
