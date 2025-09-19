@@ -94,6 +94,17 @@ function DiaryApp() {
   const [loading, setLoading] = useState(false);
   const [planUseAI, setPlanUseAI] = useState(true);
   const [actualUseAI, setActualUseAI] = useState(true);
+  const [autoSuggestions, setAutoSuggestions] = useState<string[]>([]);
+  const [showAutoSuggestions, setShowAutoSuggestions] = useState(false);
+  const [planImageUpload, setPlanImageUpload] = useState<File | null>(null);
+  const [actualImageUpload, setActualImageUpload] = useState<File | null>(null);
+  const [planImagePreview, setPlanImagePreview] = useState<string | null>(null);
+  const [actualImagePreview, setActualImagePreview] = useState<string | null>(null);
+  const [savedTags, setSavedTags] = useState<string[]>([]);
+  const [planTags, setPlanTags] = useState<string[]>([]);
+  const [actualTags, setActualTags] = useState<string[]>([]);
+  const [showTagLibrary, setShowTagLibrary] = useState(false);
+  const [taggedPlans, setTaggedPlans] = useState<{ [key: string]: string[] }>({});
 
   const diffSummary = useMemo(
     () => buildDiffSummary(planPage.text, actualPage.text),
@@ -142,6 +153,7 @@ function DiaryApp() {
       try {
         const yearMonth = selectedDate.toISOString().slice(0, 7); // YYYY-MM
         const entries = await getDiaryEntriesByMonth(yearMonth);
+        console.log('[DEBUG] Monthly entries loaded:', entries);
         setMonthlyEntries(entries);
       } catch (error) {
         console.error("Failed to load monthly entries:", error);
@@ -149,6 +161,28 @@ function DiaryApp() {
     }
     loadMonthlyEntries();
   }, [selectedDate, showCalendar]);
+
+  // Auto load activity suggestions for empty plan days
+  useEffect(() => {
+    async function loadAutoSuggestions() {
+      if (!user || planInput.trim() || planPage.text || loading) return;
+
+      try {
+        const suggestions = await getActivitySuggestions({
+          user_id: user.userId,
+          date: selectedDateString,
+        });
+        setAutoSuggestions(suggestions.suggestions);
+        setShowAutoSuggestions(true);
+      } catch (error) {
+        console.error("Failed to load auto suggestions:", error);
+      }
+    }
+
+    // 予定が空の場合のみ、少し遅延を入れて自動提案を読み込む
+    const timer = setTimeout(loadAutoSuggestions, 1000);
+    return () => clearTimeout(timer);
+  }, [user, planInput, planPage.text, selectedDateString, loading]);
 
   async function handleGeneratePlan() {
     setPlanPage((prev) => ({ ...prev, loading: true }));
@@ -311,6 +345,84 @@ function DiaryApp() {
     setPlanPage({ text: "", imageUrl: null, loading: false });
     setActualPage({ text: "", imageUrl: null, loading: false });
     setAiDiffSummary("");
+    setPlanImageUpload(null);
+    setActualImageUpload(null);
+    setPlanImagePreview(null);
+    setActualImagePreview(null);
+  }
+
+  function handleImageUpload(file: File, type: 'plan' | 'actual') {
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (type === 'plan') {
+          setPlanImageUpload(file);
+          setPlanImagePreview(result);
+        } else {
+          setActualImageUpload(file);
+          setActualImagePreview(result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function removeUploadedImage(type: 'plan' | 'actual') {
+    if (type === 'plan') {
+      setPlanImageUpload(null);
+      setPlanImagePreview(null);
+    } else {
+      setActualImageUpload(null);
+      setActualImagePreview(null);
+    }
+  }
+
+  function addTag(tag: string, type: 'plan' | 'actual') {
+    const normalizedTag = tag.trim();
+    if (!normalizedTag) return;
+
+    if (type === 'plan') {
+      if (!planTags.includes(normalizedTag)) {
+        setPlanTags([...planTags, normalizedTag]);
+      }
+    } else {
+      if (!actualTags.includes(normalizedTag)) {
+        setActualTags([...actualTags, normalizedTag]);
+      }
+    }
+
+    // Save tag to library
+    if (!savedTags.includes(normalizedTag)) {
+      setSavedTags([...savedTags, normalizedTag]);
+    }
+  }
+
+  function removeTag(tag: string, type: 'plan' | 'actual') {
+    if (type === 'plan') {
+      setPlanTags(planTags.filter(t => t !== tag));
+    } else {
+      setActualTags(actualTags.filter(t => t !== tag));
+    }
+  }
+
+  function saveTaggedPlan(text: string, tags: string[]) {
+    if (!text.trim() || tags.length === 0) return;
+
+    tags.forEach(tag => {
+      const existing = taggedPlans[tag] || [];
+      if (!existing.includes(text)) {
+        setTaggedPlans(prev => ({
+          ...prev,
+          [tag]: [...existing, text]
+        }));
+      }
+    });
+  }
+
+  function loadTaggedPlan(text: string) {
+    setPlanInput(text);
+    setShowTagLibrary(false);
   }
 
   const selectedDateLabel = `${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月${selectedDate.getDate()}日`;
@@ -450,8 +562,20 @@ function DiaryApp() {
                 const day = index + 1;
                 const date = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day);
                 const entry = getEntryForDate(date);
-                const isSelected = formatCalendarDate(date) === selectedDateString;
-                const isToday = formatCalendarDate(date) === formatCalendarDate(new Date());
+                const dateStr = formatCalendarDate(date);
+                const isSelected = dateStr === selectedDateString;
+                const isToday = dateStr === formatCalendarDate(new Date());
+
+                // デバッグログ（最初の数日のみ）
+                if (day <= 3) {
+                  console.log(`[DEBUG] Day ${day} (${dateStr}):`, {
+                    entry,
+                    hasEntry: !!entry,
+                    planText: entry?.planText,
+                    actualText: entry?.actualText,
+                    shouldShowIndicator: entry && (entry.planText || entry.actualText)
+                  });
+                }
 
                 return (
                   <button
@@ -468,17 +592,20 @@ function DiaryApp() {
                     `}
                   >
                     {day}
-                    {entry && (entry.planText || entry.actualText) && (
-                      <div className={`
-                        absolute top-1 right-1 w-3 h-3 rounded-full border-2 border-white shadow-sm
-                        ${entry.actualText
-                          ? 'bg-green-500'  // 実際の出来事があれば緑
-                          : entry.planText
-                          ? 'bg-blue-500'   // 予定のみなら青
-                          : ''
-                        }
-                      `}></div>
-                    )}
+                    {(() => {
+                      if (!entry) return null;
+
+                      const hasActual = entry.actualText && entry.actualText.trim().length > 0;
+                      const hasPlan = entry.planText && entry.planText.trim().length > 0;
+
+                      if (!hasActual && !hasPlan) return null;
+
+                      const indicatorColor = hasActual ? 'bg-green-500' : 'bg-blue-500';
+
+                      return (
+                        <div className={`absolute top-1 right-1 w-3 h-3 rounded-full border-2 border-white shadow-sm ${indicatorColor}`}></div>
+                      );
+                    })()}
                   </button>
                 );
               })}
@@ -538,7 +665,142 @@ function DiaryApp() {
                     </>
                   )}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTagLibrary(!showTagLibrary)}
+                  className="rounded-full border border-purple-200 px-3 py-1 text-xs text-purple-600 transition hover:bg-purple-50 flex items-center gap-1"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  過去の予定
+                </button>
               </div>
+
+              {/* Plan Tags */}
+              <div className="mt-3">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {planTags.map((tag) => (
+                    <span key={tag} className="rounded-full bg-indigo-50 px-3 py-1 text-xs text-indigo-700 flex items-center gap-1">
+                      #{tag}
+                      <button
+                        onClick={() => removeTag(tag, 'plan')}
+                        className="text-indigo-500 hover:text-indigo-700"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="タグを追加（例: 研究, 映画, 買い物）"
+                    className="flex-1 px-3 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-300"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        addTag(e.currentTarget.value, 'plan');
+                        e.currentTarget.value = '';
+                      }
+                    }}
+                  />
+                  {planInput.trim() && planTags.length > 0 && (
+                    <button
+                      onClick={() => saveTaggedPlan(planInput, planTags)}
+                      className="px-3 py-1 text-xs bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
+                    >
+                      保存
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Tag Library */}
+              {showTagLibrary && (
+                <div className="mt-4 rounded-2xl border border-purple-200 bg-purple-50/50 p-4">
+                  <h4 className="text-sm font-semibold text-purple-700 mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    保存された予定
+                  </h4>
+                  {Object.keys(taggedPlans).length === 0 ? (
+                    <p className="text-sm text-purple-600">
+                      まだ保存された予定がありません。<br />
+                      予定にタグを追加して「保存」ボタンを押すと、後で再利用できます。
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {Object.entries(taggedPlans).map(([tag, plans]) => (
+                        <div key={tag} className="border border-purple-100 rounded-xl p-3 bg-white/60">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-medium text-purple-600">#{tag}</span>
+                            <span className="text-xs text-purple-500">({plans.length}件)</span>
+                          </div>
+                          <div className="space-y-1">
+                            {plans.slice(0, 3).map((plan, index) => (
+                              <button
+                                key={index}
+                                onClick={() => loadTaggedPlan(plan)}
+                                className="w-full text-left p-2 rounded-lg border border-purple-100 bg-white/40 hover:bg-white/60 transition-colors text-xs text-slate-700"
+                              >
+                                {plan.length > 60 ? `${plan.substring(0, 60)}...` : plan}
+                              </button>
+                            ))}
+                            {plans.length > 3 && (
+                              <p className="text-xs text-purple-500 mt-1">
+                                他 {plans.length - 3} 件...
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowTagLibrary(false)}
+                    className="mt-3 text-xs text-purple-600 hover:text-purple-700"
+                  >
+                    ライブラリを閉じる
+                  </button>
+                </div>
+              )}
+
+              {/* Auto suggestions for empty plan days */}
+              {showAutoSuggestions && autoSuggestions.length > 0 && !planInput.trim() && !planPage.text && (
+                <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50/50 p-4">
+                  <h4 className="text-sm font-semibold text-yellow-700 mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    あなたにおすすめの活動
+                  </h4>
+                  <div className="space-y-2">
+                    {autoSuggestions.slice(0, 3).map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setPlanInput(suggestion);
+                          setShowAutoSuggestions(false);
+                        }}
+                        className="w-full text-left p-3 rounded-xl border border-yellow-200 bg-white/60 hover:bg-white/80 transition-colors text-sm text-slate-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-600">•</span>
+                          {suggestion}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setShowAutoSuggestions(false)}
+                    className="mt-3 text-xs text-yellow-600 hover:text-yellow-700"
+                  >
+                    提案を非表示
+                  </button>
+                </div>
+              )}
+
               <div className="mt-4 space-y-3">
                 <div className="flex items-center gap-3">
                   <input
@@ -561,6 +823,46 @@ function DiaryApp() {
                   {planPage.loading ? "生成中..." : planUseAI ? "未来日記を生成" : "画像付きで保存"}
                 </button>
               </div>
+              {/* Photo upload for plan */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-slate-700">写真をアップロード</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file, 'plan');
+                    }}
+                    className="hidden"
+                    id="plan-image-upload"
+                  />
+                  <label
+                    htmlFor="plan-image-upload"
+                    className="cursor-pointer rounded-lg border border-blue-200 px-3 py-1 text-xs text-blue-600 hover:bg-blue-50 transition-colors"
+                  >
+                    📷 写真を選択
+                  </label>
+                </div>
+                {planImagePreview && (
+                  <div className="relative rounded-2xl overflow-hidden border border-blue-100">
+                    <Image
+                      src={planImagePreview}
+                      alt="アップロードした写真"
+                      width={640}
+                      height={480}
+                      className="h-56 w-full object-cover"
+                    />
+                    <button
+                      onClick={() => removeUploadedImage('plan')}
+                      className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {(planPage.text || planPage.imageUrl) && (
                 <div className="mt-6 space-y-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
                   {planPage.imageUrl && (
@@ -612,6 +914,45 @@ function DiaryApp() {
                 >
                   {actualPage.loading ? "生成中..." : actualUseAI ? "実際の日記を生成" : "画像付きで保存"}
                 </button>
+              </div>
+              {/* Photo upload for actual */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-slate-700">写真をアップロード</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file, 'actual');
+                    }}
+                    className="hidden"
+                    id="actual-image-upload"
+                  />
+                  <label
+                    htmlFor="actual-image-upload"
+                    className="cursor-pointer rounded-lg border border-emerald-200 px-3 py-1 text-xs text-emerald-600 hover:bg-emerald-50 transition-colors"
+                  >
+                    📷 写真を選択
+                  </label>
+                </div>
+                {actualImagePreview && (
+                  <div className="relative rounded-2xl overflow-hidden border border-emerald-100">
+                    <Image
+                      src={actualImagePreview}
+                      alt="アップロードした写真"
+                      width={640}
+                      height={480}
+                      className="h-56 w-full object-cover"
+                    />
+                    <button
+                      onClick={() => removeUploadedImage('actual')}
+                      className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
               </div>
               {(actualPage.text || actualPage.imageUrl) && (
                 <div className="mt-6 space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
