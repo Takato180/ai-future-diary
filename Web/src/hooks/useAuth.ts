@@ -1,4 +1,6 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+'use client';
+
+import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { UserResponse, AuthResponse, UserCreate, UserLogin, registerUser, loginUser, getCurrentUser } from '@/lib/api';
 
 interface AuthContextType {
@@ -88,9 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
+  return React.createElement(
+    AuthContext.Provider,
+    { value },
+    children
   );
 }
