@@ -72,7 +72,7 @@ function buildDiffSummary(planText: string, actualText: string): DiffSummary | n
 }
 
 function DiaryApp() {
-  const { user, isLoading } = useAuth();
+  const { user, token, isLoading } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // ログインが必要な場合はモーダルを表示
@@ -231,7 +231,7 @@ function DiaryApp() {
         setSavedTags([]);
       }
     }
-  }, [user?.userId, isLoading]); // Trigger when user ID changes
+  }, [user?.userId, isLoading, previousUserId]); // Trigger when user ID changes
 
   // Load existing entry when date changes or user changes
   useEffect(() => {
@@ -338,7 +338,7 @@ function DiaryApp() {
       }
     }
     loadMonthlyEntries();
-  }, [selectedDate, showCalendar, user, isLoading, yearlyEntriesCache]);
+  }, [selectedDate, showCalendar, user, isLoading]); // キャッシュは内部で適切に処理される
 
   // Auto load activity suggestions for empty plan days (optimized)
   useEffect(() => {
@@ -764,7 +764,7 @@ function DiaryApp() {
 
   return (
     <div className="min-h-screen bg-[#f5ede1] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.7),transparent_60%)] pb-16">
-      <IntroPlayer token={token} />
+      <IntroPlayer token={token || undefined} />
       <UserHeader />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12">
         <header className="text-center lg:text-left">
