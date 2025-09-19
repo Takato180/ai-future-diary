@@ -106,44 +106,73 @@ async def generate_future_diary(request: FutureDiaryRequest):
 
         response = model.generate_content(prompt)
         result_text = response.text
-        
-        # レスポンスをパース
-        lines = result_text.strip().split('\n')
+        print(f"[DEBUG] Gemini response: {result_text}")  # デバッグ用
+
+        # レスポンスをパース - より柔軟なアプローチ
         diary_text = ""
         image_prompt = ""
-        
+
+        # バッククォートを除去
+        clean_text = result_text.replace('```', '').strip()
+        lines = clean_text.split('\n')
+
+        # パターン1: 明確な区切りがある場合
         for line in lines:
             line = line.strip()
-            if line.startswith("日記文:"):
-                diary_text = line.replace("日記文:", "").strip()
-            elif line.startswith("画像プロンプト:"):
-                image_prompt = line.replace("画像プロンプト:", "").strip()
+            if line.startswith("日記文:") or line.startswith("日記:"):
+                diary_text = line.split(":", 1)[1].strip()
+            elif line.startswith("画像プロンプト:") or line.startswith("プロンプト:"):
+                image_prompt = line.split(":", 1)[1].strip()
             elif "watercolor" in line.lower() and not image_prompt:
                 image_prompt = line.strip()
-        
-        # より良いフォールバック: 日記らしい部分を抽出
+
+        # パターン2: 区切りが曖昧な場合、日記らしい文章を探す
         if not diary_text:
-            # バッククォートを除去して、日記らしい部分を探す
-            clean_text = result_text.replace('```', '').strip()
-            diary_lines = []
-            
-            for line in clean_text.split('\n'):
+            potential_diary_lines = []
+            skip_next = False
+
+            for i, line in enumerate(lines):
                 line = line.strip()
-                # 画像プロンプト行や提案行は除外
-                if line and not line.startswith('画像プロンプト:') and not line.startswith('提案:') and 'watercolor' not in line.lower():
-                    # "日記文:"で始まる場合は、その後の部分を取得
-                    if line.startswith('日記文:'):
-                        diary_text = line.replace('日記文:', '').strip()
-                        break
-                    # それ以外で意味のありそうな行を収集
-                    elif len(line) > 10 and ('だった' in line or 'した' in line or 'である' in line):
-                        diary_lines.append(line)
-            
-            # まだ見つからない場合は、収集した行から最初のものを使用
-            if not diary_text and diary_lines:
-                diary_text = diary_lines[0][:200]
-            elif not diary_text:
-                diary_text = "素敵な一日だった！"
+                if not line:
+                    continue
+
+                # 提案行やプロンプト関連はスキップ
+                if any(word in line for word in ['提案:', '画像プロンプト:', 'watercolor', 'illustration', 'style']):
+                    skip_next = True
+                    continue
+
+                # 日記らしい内容かチェック
+                if len(line) > 15 and any(pattern in line for pattern in ['だった', 'した', 'になった', 'できた', 'いった', 'ました']):
+                    # 複数行にわたる場合は結合
+                    full_text = line
+                    for j in range(i+1, min(i+3, len(lines))):
+                        next_line = lines[j].strip()
+                        if next_line and not any(word in next_line for word in ['画像プロンプト:', 'watercolor', '提案:']):
+                            if any(pattern in next_line for pattern in ['だった', 'した', 'になった', 'できた', 'いった', 'ました']):
+                                full_text += next_line
+                    potential_diary_lines.append(full_text)
+
+            if potential_diary_lines:
+                # 最も長くて内容がありそうなものを選択
+                diary_text = max(potential_diary_lines, key=len)
+                if len(diary_text) > 300:
+                    diary_text = diary_text[:300] + "..."
+
+        # パターン3: それでも見つからない場合、全体から抽出
+        if not diary_text:
+            # 明らかにプロンプト指示ではない、日記らしい文章を探す
+            for line in lines:
+                line = line.strip()
+                if (len(line) > 20 and
+                    not line.startswith(('要件', '以下', 'また', 'あなた', 'プロンプト', '```')) and
+                    any(pattern in line for pattern in ['だった', 'した', 'た。', 'です。', 'である。']) and
+                    'watercolor' not in line.lower()):
+                    diary_text = line
+                    break
+
+        # 最終フォールバック
+        if not diary_text:
+            diary_text = "今日も新しい発見があって、とても充実した一日だった！"
                 
         if not image_prompt:
             image_prompt = "watercolor style, peaceful daily life scene, soft and warm illustration"
@@ -191,44 +220,68 @@ async def generate_today_reflection(request: TodayReflectionRequest):
 
         response = model.generate_content(prompt)
         result_text = response.text
-        
-        # レスポンスをパース
-        lines = result_text.strip().split('\n')
+        print(f"[DEBUG] Reflection response: {result_text}")  # デバッグ用
+
+        # レスポンスをパース - future-diaryと同じロジック
         diary_text = ""
         image_prompt = ""
-        
+
+        # バッククォートを除去
+        clean_text = result_text.replace('```', '').strip()
+        lines = clean_text.split('\n')
+
+        # パターン1: 明確な区切りがある場合
         for line in lines:
             line = line.strip()
-            if line.startswith("日記文:"):
-                diary_text = line.replace("日記文:", "").strip()
-            elif line.startswith("画像プロンプト:"):
-                image_prompt = line.replace("画像プロンプト:", "").strip()
+            if line.startswith("日記文:") or line.startswith("日記:"):
+                diary_text = line.split(":", 1)[1].strip()
+            elif line.startswith("画像プロンプト:") or line.startswith("プロンプト:"):
+                image_prompt = line.split(":", 1)[1].strip()
             elif "watercolor" in line.lower() and not image_prompt:
                 image_prompt = line.strip()
-        
-        # より良いフォールバック: 日記らしい部分を抽出
+
+        # パターン2: 区切りが曖昧な場合、日記らしい文章を探す
         if not diary_text:
-            # バッククォートを除去して、日記らしい部分を探す
-            clean_text = result_text.replace('```', '').strip()
-            diary_lines = []
-            
-            for line in clean_text.split('\n'):
+            potential_diary_lines = []
+
+            for i, line in enumerate(lines):
                 line = line.strip()
-                # 画像プロンプト行は除外
-                if line and not line.startswith('画像プロンプト:') and 'watercolor' not in line.lower():
-                    # "日記文:"で始まる場合は、その後の部分を取得
-                    if line.startswith('日記文:'):
-                        diary_text = line.replace('日記文:', '').strip()
-                        break
-                    # それ以外で意味のありそうな行を収集
-                    elif len(line) > 10 and ('だった' in line or 'した' in line or 'である' in line):
-                        diary_lines.append(line)
-            
-            # まだ見つからない場合は、収集した行から最初のものを使用
-            if not diary_text and diary_lines:
-                diary_text = diary_lines[0][:200]
-            elif not diary_text:
-                diary_text = request.reflection_text[:200] if request.reflection_text else "今日も良い一日だった。"
+                if not line:
+                    continue
+
+                # プロンプト関連はスキップ
+                if any(word in line for word in ['画像プロンプト:', 'watercolor', 'illustration', 'style']):
+                    continue
+
+                # 日記らしい内容かチェック
+                if len(line) > 15 and any(pattern in line for pattern in ['だった', 'した', 'になった', 'できた', 'いった', 'ました']):
+                    full_text = line
+                    for j in range(i+1, min(i+3, len(lines))):
+                        next_line = lines[j].strip()
+                        if next_line and not any(word in next_line for word in ['画像プロンプト:', 'watercolor']):
+                            if any(pattern in next_line for pattern in ['だった', 'した', 'になった', 'できた', 'いった', 'ました']):
+                                full_text += next_line
+                    potential_diary_lines.append(full_text)
+
+            if potential_diary_lines:
+                diary_text = max(potential_diary_lines, key=len)
+                if len(diary_text) > 300:
+                    diary_text = diary_text[:300] + "..."
+
+        # パターン3: それでも見つからない場合、全体から抽出
+        if not diary_text:
+            for line in lines:
+                line = line.strip()
+                if (len(line) > 20 and
+                    not line.startswith(('要件', '以下', 'また', 'あなた', 'プロンプト', '```')) and
+                    any(pattern in line for pattern in ['だった', 'した', 'た。', 'です。', 'である。']) and
+                    'watercolor' not in line.lower()):
+                    diary_text = line
+                    break
+
+        # 最終フォールバック
+        if not diary_text:
+            diary_text = request.reflection_text[:200] if request.reflection_text else "今日も心に残る体験ができた一日だった。"
                 
         if not image_prompt:
             image_prompt = "watercolor style, peaceful daily life scene, soft and warm illustration"

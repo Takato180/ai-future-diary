@@ -83,3 +83,67 @@ export async function getImageStyles() {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+// Diary API
+export interface DiaryEntry {
+  userId: string;
+  date: string; // YYYY-MM-DD
+  planText?: string;
+  planImageUrl?: string;
+  actualText?: string;
+  actualImageUrl?: string;
+  diffText?: string;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+}
+
+export interface DiaryEntryCreate {
+  userId?: string;
+  date: string;
+  planText?: string;
+  planImageUrl?: string;
+  actualText?: string;
+  actualImageUrl?: string;
+  diffText?: string;
+  tags?: string[];
+}
+
+export async function saveDiaryEntry(date: string, entry: DiaryEntryCreate): Promise<DiaryEntry> {
+  const r = await fetch(`${API}/diary/entries/${date}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getDiaryEntry(date: string, userId: string = 'anonymous'): Promise<DiaryEntry | null> {
+  const r = await fetch(`${API}/diary/entries/${date}?user_id=${userId}`);
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getDiaryEntriesByMonth(month: string, userId: string = 'anonymous'): Promise<DiaryEntry[]> {
+  const r = await fetch(`${API}/diary/entries?month=${month}&user_id=${userId}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function generateDiffSummary(date: string, userId: string = 'anonymous'): Promise<{ date: string; userId: string; diffText: string }> {
+  const r = await fetch(`${API}/diary/entries/${date}/diff?user_id=${userId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getDiaryStatus() {
+  const r = await fetch(`${API}/diary/status`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}

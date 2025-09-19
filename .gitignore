@@ -47,3 +47,6 @@ Thumbs.db
 
 # Allow frontend lib folder
 !Web/src/lib/
+
+# Claude Code files
+claude.md

@@ -1,12 +1,17 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   API,
   generateFutureDiary,
   generateImage,
   generateTodayReflection,
+  saveDiaryEntry,
+  getDiaryEntry,
+  getDiaryEntriesByMonth,
+  generateDiffSummary,
+  DiaryEntry,
 } from "@/lib/api";
 
 type DiaryPageState = {
@@ -66,11 +71,66 @@ export default function HomePage() {
   const [actualInput, setActualInput] = useState("");
   const [planPage, setPlanPage] = useState<DiaryPageState>({ text: "", imageUrl: null, loading: false });
   const [actualPage, setActualPage] = useState<DiaryPageState>({ text: "", imageUrl: null, loading: false });
+  const [savedEntry, setSavedEntry] = useState<DiaryEntry | null>(null);
+  const [aiDiffSummary, setAiDiffSummary] = useState<string>("");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [monthlyEntries, setMonthlyEntries] = useState<DiaryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const diffSummary = useMemo(
     () => buildDiffSummary(planPage.text, actualPage.text),
     [planPage.text, actualPage.text],
   );
+
+  const selectedDateString = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // Load existing entry when date changes
+  useEffect(() => {
+    async function loadEntry() {
+      try {
+        const entry = await getDiaryEntry(selectedDateString);
+        if (entry) {
+          setSavedEntry(entry);
+          if (entry.planText) {
+            setPlanPage(prev => ({ ...prev, text: entry.planText || "" }));
+            if (entry.planImageUrl) {
+              setPlanPage(prev => ({ ...prev, imageUrl: entry.planImageUrl || null }));
+            }
+          }
+          if (entry.actualText) {
+            setActualPage(prev => ({ ...prev, text: entry.actualText || "" }));
+            if (entry.actualImageUrl) {
+              setActualPage(prev => ({ ...prev, imageUrl: entry.actualImageUrl || null }));
+            }
+          }
+          if (entry.diffText) {
+            setAiDiffSummary(entry.diffText);
+          }
+        } else {
+          setSavedEntry(null);
+          setAiDiffSummary("");
+        }
+      } catch (error) {
+        console.error("Failed to load entry:", error);
+      }
+    }
+    loadEntry();
+  }, [selectedDateString]);
+
+  // Load monthly entries for calendar
+  useEffect(() => {
+    async function loadMonthlyEntries() {
+      if (!showCalendar) return;
+      try {
+        const yearMonth = selectedDate.toISOString().slice(0, 7); // YYYY-MM
+        const entries = await getDiaryEntriesByMonth(yearMonth);
+        setMonthlyEntries(entries);
+      } catch (error) {
+        console.error("Failed to load monthly entries:", error);
+      }
+    }
+    loadMonthlyEntries();
+  }, [selectedDate, showCalendar]);
 
   async function handleGeneratePlan() {
     setPlanPage((prev) => ({ ...prev, loading: true }));
@@ -87,10 +147,18 @@ export default function HomePage() {
         aspect_ratio: "1:1",
       });
 
-      setPlanPage({
+      const newPlanPage = {
         text: textResult.generated_text,
         imageUrl: imageResult.public_url || null,
         loading: false,
+      };
+
+      setPlanPage(newPlanPage);
+
+      // Save to database
+      await saveToDiary({
+        planText: textResult.generated_text,
+        planImageUrl: imageResult.public_url,
       });
     } catch (error) {
       console.error("Plan generation failed", error);
@@ -114,15 +182,54 @@ export default function HomePage() {
         aspect_ratio: "1:1",
       });
 
-      setActualPage({
+      const newActualPage = {
         text: textResult.generated_text,
         imageUrl: imageResult.public_url || null,
         loading: false,
+      };
+
+      setActualPage(newActualPage);
+
+      // Save to database
+      await saveToDiary({
+        actualText: textResult.generated_text,
+        actualImageUrl: imageResult.public_url,
       });
     } catch (error) {
       console.error("Reflection generation failed", error);
       alert("実際日記の生成に失敗しました。時間を置いて再度お試しください。");
       setActualPage((prev) => ({ ...prev, loading: false }));
+    }
+  }
+
+  async function saveToDiary(updates: Partial<DiaryEntry>) {
+    try {
+      const savedEntryData = await saveDiaryEntry(selectedDateString, {
+        date: selectedDateString,
+        ...updates,
+      });
+      setSavedEntry(savedEntryData);
+    } catch (error) {
+      console.error("Failed to save diary entry:", error);
+    }
+  }
+
+  async function handleGenerateAIDiff() {
+    if (!planPage.text || !actualPage.text) {
+      alert("予定と実際の両方の日記が生成されている必要があります。");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await generateDiffSummary(selectedDateString);
+      setAiDiffSummary(result.diffText);
+      setSavedEntry(prev => prev ? { ...prev, diffText: result.diffText } : null);
+    } catch (error) {
+      console.error("Failed to generate AI diff:", error);
+      alert("AI差分要約の生成に失敗しました。");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -137,11 +244,25 @@ export default function HomePage() {
       next.setDate(prev.getDate() + offset);
       return next;
     });
+    // Clear inputs and generated content (will be loaded from DB if exists)
     setPlanInput("");
     setInterestList([]);
     setActualInput("");
     setPlanPage({ text: "", imageUrl: null, loading: false });
     setActualPage({ text: "", imageUrl: null, loading: false });
+    setAiDiffSummary("");
+  }
+
+  function handleCalendarDateSelect(date: Date) {
+    setSelectedDate(date);
+    setShowCalendar(false);
+    // Clear inputs and generated content (will be loaded from DB if exists)
+    setPlanInput("");
+    setInterestList([]);
+    setActualInput("");
+    setPlanPage({ text: "", imageUrl: null, loading: false });
+    setActualPage({ text: "", imageUrl: null, loading: false });
+    setAiDiffSummary("");
   }
 
   const selectedDateLabel = `${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月${selectedDate.getDate()}日`;
@@ -151,6 +272,24 @@ export default function HomePage() {
       "linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.9) 100%), repeating-linear-gradient(transparent, transparent 46px, rgba(0,0,0,0.04) 47px)",
     backgroundSize: "100% 100%, 24px 48px",
   } as const;
+
+  // Calendar utility functions
+  function getDaysInMonth(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  }
+
+  function getFirstDayOfMonth(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  }
+
+  function formatCalendarDate(date: Date) {
+    return date.toISOString().split('T')[0];
+  }
+
+  function getEntryForDate(date: Date) {
+    const dateStr = formatCalendarDate(date);
+    return monthlyEntries.find(entry => entry.date === dateStr);
+  }
 
   return (
     <div className="min-h-screen bg-[#f5ede1] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.7),transparent_60%)] pb-16">
@@ -164,14 +303,31 @@ export default function HomePage() {
         </header>
 
         <section className="flex items-center justify-between rounded-3xl bg-white/70 px-5 py-4 shadow-sm backdrop-blur">
-          <button
-            type="button"
-            onClick={() => handleDateChange(-1)}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
-          >
-            前の日へ
-          </button>
-          <div className="text-lg font-semibold text-slate-800">{selectedDateLabel}</div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleDateChange(-1)}
+              className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
+            >
+              前の日へ
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCalendar(!showCalendar)}
+              className="rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
+            >
+              📅
+            </button>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="text-lg font-semibold text-slate-800">{selectedDateLabel}</div>
+            {savedEntry && (
+              <div className="text-xs text-green-600 flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                保存済み
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => handleDateChange(1)}
@@ -180,6 +336,58 @@ export default function HomePage() {
             次の日へ
           </button>
         </section>
+
+        {showCalendar && (
+          <section className="rounded-3xl bg-white/80 p-6 shadow-lg backdrop-blur">
+            <h2 className="text-lg font-semibold text-slate-800 mb-4">カレンダー</h2>
+            <div className="grid grid-cols-7 gap-2 text-center">
+              {['日', '月', '火', '水', '木', '金', '土'].map(day => (
+                <div key={day} className="p-2 text-sm font-medium text-slate-600">
+                  {day}
+                </div>
+              ))}
+              {Array.from({ length: getFirstDayOfMonth(selectedDate) }).map((_, index) => (
+                <div key={`empty-${index}`} className="p-2"></div>
+              ))}
+              {Array.from({ length: getDaysInMonth(selectedDate) }, (_, index) => {
+                const day = index + 1;
+                const date = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day);
+                const entry = getEntryForDate(date);
+                const isSelected = formatCalendarDate(date) === selectedDateString;
+                const isToday = formatCalendarDate(date) === formatCalendarDate(new Date());
+
+                return (
+                  <button
+                    key={day}
+                    onClick={() => handleCalendarDateSelect(date)}
+                    className={`
+                      relative p-2 text-sm rounded-lg transition-colors
+                      ${isSelected
+                        ? 'bg-blue-500 text-white'
+                        : isToday
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'hover:bg-slate-100 text-slate-700'
+                      }
+                    `}
+                  >
+                    {day}
+                    {entry && (
+                      <div className={`
+                        absolute top-1 right-1 w-2 h-2 rounded-full
+                        ${entry.planText && entry.actualText
+                          ? 'bg-green-500'
+                          : entry.planText || entry.actualText
+                          ? 'bg-yellow-500'
+                          : 'bg-gray-300'
+                        }
+                      `}></div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <div className="relative overflow-hidden rounded-[40px] bg-[#fffaf2] shadow-[0_35px_60px_-25px_rgba(51,35,17,0.3)]" style={notebookBackground}>
           <div className="pointer-events-none absolute inset-y-6 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-rose-200/60 shadow-[4px_0_18px_rgba(0,0,0,0.15)]"></div>
@@ -292,7 +500,26 @@ export default function HomePage() {
         </div>
 
         <section className="rounded-[32px] border border-slate-200/60 bg-white/90 p-6 shadow-lg">
-          <h2 className="text-lg font-semibold text-slate-800">差分要約</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800">差分要約</h2>
+            {planPage.text && actualPage.text && (
+              <button
+                onClick={handleGenerateAIDiff}
+                disabled={loading}
+                className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-600 disabled:bg-slate-300"
+              >
+                {loading ? "生成中..." : "AI差分要約を生成"}
+              </button>
+            )}
+          </div>
+
+          {aiDiffSummary && (
+            <div className="mb-6 rounded-2xl border border-violet-200 bg-violet-50/50 p-4">
+              <h3 className="text-sm font-semibold text-violet-700 mb-2">AI差分要約</h3>
+              <p className="text-sm text-slate-700 whitespace-pre-line">{aiDiffSummary}</p>
+            </div>
+          )}
+
           {diffSummary ? (
             <div className="mt-4 space-y-3 text-sm text-slate-700">
               <p>{diffSummary.message}</p>
