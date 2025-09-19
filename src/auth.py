@@ -72,16 +72,21 @@ async def register_user(user_create: UserCreate):
         cover_prompt = await generate_user_cover(user.userName)
 
         try:
+            # 画像生成リクエストオブジェクトを作成
+            from .imagegen import ImageGenerateRequest
+
+            image_request = ImageGenerateRequest(
+                prompt=cover_prompt,
+                style="watercolor",
+                aspect_ratio="4:3"
+            )
+
             # 画像生成
-            cover_result = await generate_image({
-                "prompt": cover_prompt,
-                "style": "watercolor",
-                "aspect_ratio": "4:3"
-            })
+            cover_result = await generate_image(image_request)
 
             # 表紙画像URLを更新
-            await update_user_cover(user.userId, cover_result["public_url"])
-            user.coverImageUrl = cover_result["public_url"]
+            await update_user_cover(user.userId, cover_result.public_url)
+            user.coverImageUrl = cover_result.public_url
         except Exception as e:
             print(f"Cover image generation failed: {e}")
 
@@ -142,17 +147,21 @@ async def regenerate_cover(user_id: str = Depends(get_current_user_required)):
 
         # 表紙画像を再生成
         cover_prompt = await generate_user_cover(user.userName)
-        cover_result = await generate_image({
-            "prompt": cover_prompt,
-            "style": "watercolor",
-            "aspect_ratio": "4:3"
-        })
+
+        from .imagegen import ImageGenerateRequest
+        image_request = ImageGenerateRequest(
+            prompt=cover_prompt,
+            style="watercolor",
+            aspect_ratio="4:3"
+        )
+
+        cover_result = await generate_image(image_request)
 
         # 表紙画像URLを更新
-        await update_user_cover(user_id, cover_result["public_url"])
+        await update_user_cover(user_id, cover_result.public_url)
 
         return {
-            "coverImageUrl": cover_result["public_url"],
+            "coverImageUrl": cover_result.public_url,
             "message": "表紙画像を更新しました"
         }
 

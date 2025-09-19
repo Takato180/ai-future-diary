@@ -113,9 +113,18 @@ export interface DiaryEntryCreate {
 }
 
 export async function saveDiaryEntry(date: string, entry: DiaryEntryCreate): Promise<DiaryEntry> {
+  const token = localStorage.getItem('auth_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const r = await fetch(`${API}/diary/entries/${date}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(entry),
   });
   if (!r.ok) throw new Error(await r.text());
@@ -123,22 +132,49 @@ export async function saveDiaryEntry(date: string, entry: DiaryEntryCreate): Pro
 }
 
 export async function getDiaryEntry(date: string, userId: string = 'anonymous'): Promise<DiaryEntry | null> {
-  const r = await fetch(`${API}/diary/entries/${date}?user_id=${userId}`);
+  const token = localStorage.getItem('auth_token');
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const r = await fetch(`${API}/diary/entries/${date}?user_id=${userId}`, {
+    headers,
+  });
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function getDiaryEntriesByMonth(month: string, userId: string = 'anonymous'): Promise<DiaryEntry[]> {
-  const r = await fetch(`${API}/diary/entries?month=${month}&user_id=${userId}`);
+  const token = localStorage.getItem('auth_token');
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const r = await fetch(`${API}/diary/entries?month=${month}&user_id=${userId}`, {
+    headers,
+  });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function generateDiffSummary(date: string, userId: string = 'anonymous'): Promise<{ date: string; userId: string; diffText: string }> {
+  const token = localStorage.getItem('auth_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const r = await fetch(`${API}/diary/entries/${date}/diff?user_id=${userId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
