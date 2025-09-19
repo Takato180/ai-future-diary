@@ -12,6 +12,7 @@ import {
   getDiaryEntriesByMonth,
   generateDiffSummary,
   getActivitySuggestions,
+  uploadImageFile,
   DiaryEntry,
 } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -113,6 +114,32 @@ function DiaryApp() {
 
   const selectedDateString = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
+  // Clear all data when user changes (login/logout)
+  useEffect(() => {
+    if (!isLoading) {
+      // Clear all state when user changes
+      setPlanInput("");
+      setInterestList([]);
+      setActualInput("");
+      setPlanPage({ text: "", imageUrl: null, loading: false });
+      setActualPage({ text: "", imageUrl: null, loading: false });
+      setAiDiffSummary("");
+      setPlanImageUpload(null);
+      setActualImageUpload(null);
+      setPlanImagePreview(null);
+      setActualImagePreview(null);
+      setPlanTags([]);
+      setActualTags([]);
+      setSavedTags([]);
+      setTaggedPlans({});
+      setShowTagLibrary(false);
+      setAutoSuggestions([]);
+      setShowAutoSuggestions(false);
+      setSavedEntry(null);
+      setMonthlyEntries([]);
+    }
+  }, [user?.userId, isLoading]); // Trigger when user ID changes
+
   // Load existing entry when date changes
   useEffect(() => {
     async function loadEntry() {
@@ -135,9 +162,16 @@ function DiaryApp() {
           if (entry.diffText) {
             setAiDiffSummary(entry.diffText);
           }
+          if (entry.tags) {
+            // Separate tags for plan and actual (for now, show all tags in plan)
+            setPlanTags(entry.tags);
+            setActualTags([]);
+          }
         } else {
           setSavedEntry(null);
           setAiDiffSummary("");
+          setPlanTags([]);
+          setActualTags([]);
         }
       } catch (error) {
         console.error("Failed to load entry:", error);
@@ -260,11 +294,38 @@ function DiaryApp() {
 
   async function saveToDiary(updates: Partial<DiaryEntry>) {
     try {
+      // Upload images if present
+      let planImageUrl = updates.planImageUrl;
+      let actualImageUrl = updates.actualImageUrl;
+
+      if (planImageUpload) {
+        const imagePath = `diary/${user?.userId || 'anonymous'}/${selectedDateString}/plan_${Date.now()}.jpg`;
+        planImageUrl = await uploadImageFile(planImageUpload, imagePath);
+      }
+
+      if (actualImageUpload) {
+        const imagePath = `diary/${user?.userId || 'anonymous'}/${selectedDateString}/actual_${Date.now()}.jpg`;
+        actualImageUrl = await uploadImageFile(actualImageUpload, imagePath);
+      }
+
       const savedEntryData = await saveDiaryEntry(selectedDateString, {
         date: selectedDateString,
+        planImageUrl,
+        actualImageUrl,
+        tags: [...planTags, ...actualTags],
         ...updates,
       });
       setSavedEntry(savedEntryData);
+
+      // Clear uploaded images after save
+      if (planImageUpload) {
+        setPlanImageUpload(null);
+        setPlanImagePreview(null);
+      }
+      if (actualImageUpload) {
+        setActualImageUpload(null);
+        setActualImagePreview(null);
+      }
     } catch (error) {
       console.error("Failed to save diary entry:", error);
     }
@@ -678,10 +739,16 @@ function DiaryApp() {
               </div>
 
               {/* Plan Tags */}
-              <div className="mt-3">
+              <div className="mt-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50/30">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-indigo-700">タグで分類 (後で再利用可能)</span>
+                  {planTags.length > 0 && (
+                    <span className="text-xs text-indigo-500">{planTags.length}個</span>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {planTags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-indigo-50 px-3 py-1 text-xs text-indigo-700 flex items-center gap-1">
+                    <span key={tag} className="rounded-full bg-indigo-100 px-3 py-1 text-xs text-indigo-700 flex items-center gap-1">
                       #{tag}
                       <button
                         onClick={() => removeTag(tag, 'plan')}
@@ -695,8 +762,8 @@ function DiaryApp() {
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="タグを追加（例: 研究, 映画, 買い物）"
-                    className="flex-1 px-3 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-300"
+                    placeholder="タグ名を入力してEnterキー (例: 研究, 映画, 買い物)"
+                    className="flex-1 px-3 py-2 text-xs border border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-400 bg-white"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         addTag(e.currentTarget.value, 'plan');
@@ -706,13 +773,21 @@ function DiaryApp() {
                   />
                   {planInput.trim() && planTags.length > 0 && (
                     <button
-                      onClick={() => saveTaggedPlan(planInput, planTags)}
-                      className="px-3 py-1 text-xs bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
+                      onClick={() => {
+                        saveTaggedPlan(planInput, planTags);
+                        alert(`「${planTags.join(', ')}」タグで予定を保存しました！`);
+                      }}
+                      className="px-4 py-2 text-xs bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors font-medium"
                     >
-                      保存
+                      📚 予定を保存
                     </button>
                   )}
                 </div>
+                {planTags.length === 0 && (
+                  <p className="text-xs text-indigo-600 mt-1">
+                    💡 タグを追加すると予定を分類・保存して後で再利用できます
+                  </p>
+                )}
               </div>
 
               {/* Tag Library */}
