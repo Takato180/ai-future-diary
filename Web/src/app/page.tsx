@@ -114,35 +114,70 @@ function DiaryApp() {
 
   const selectedDateString = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-  // Clear all data when user changes (login/logout)
+  // Clear temporary data when user changes and reload user data
   useEffect(() => {
     if (!isLoading) {
-      // Clear all state when user changes
+      // Clear temporary state (non-persistent data)
       setPlanInput("");
       setInterestList([]);
       setActualInput("");
-      setPlanPage({ text: "", imageUrl: null, loading: false });
-      setActualPage({ text: "", imageUrl: null, loading: false });
-      setAiDiffSummary("");
       setPlanImageUpload(null);
       setActualImageUpload(null);
       setPlanImagePreview(null);
       setActualImagePreview(null);
-      setPlanTags([]);
-      setActualTags([]);
-      setSavedTags([]);
-      setTaggedPlans({});
       setShowTagLibrary(false);
       setAutoSuggestions([]);
       setShowAutoSuggestions(false);
+      setShowCalendar(false);
+
+      // Clear persistent data that should be reloaded
+      setPlanPage({ text: "", imageUrl: null, loading: false });
+      setActualPage({ text: "", imageUrl: null, loading: false });
+      setAiDiffSummary("");
+      setPlanTags([]);
+      setActualTags([]);
       setSavedEntry(null);
       setMonthlyEntries([]);
+
+      // Load user-specific persistent data
+      if (user?.userId) {
+        const userTagKey = `taggedPlans_${user.userId}`;
+        const userSavedTagsKey = `savedTags_${user.userId}`;
+
+        try {
+          const savedTaggedPlans = localStorage.getItem(userTagKey);
+          const savedUserTags = localStorage.getItem(userSavedTagsKey);
+
+          if (savedTaggedPlans) {
+            setTaggedPlans(JSON.parse(savedTaggedPlans));
+          } else {
+            setTaggedPlans({});
+          }
+
+          if (savedUserTags) {
+            setSavedTags(JSON.parse(savedUserTags));
+          } else {
+            setSavedTags([]);
+          }
+        } catch (error) {
+          console.error("Failed to load user data from localStorage:", error);
+          setTaggedPlans({});
+          setSavedTags([]);
+        }
+      } else {
+        // Not logged in - clear user-specific data
+        setTaggedPlans({});
+        setSavedTags([]);
+      }
     }
   }, [user?.userId, isLoading]); // Trigger when user ID changes
 
-  // Load existing entry when date changes
+  // Load existing entry when date changes or user changes
   useEffect(() => {
     async function loadEntry() {
+      // Skip loading if no user is logged in
+      if (isLoading || !user) return;
+
       try {
         const entry = await getDiaryEntry(selectedDateString);
         if (entry) {
@@ -168,22 +203,22 @@ function DiaryApp() {
             setActualTags([]);
           }
         } else {
+          // No entry found - this is expected for new dates
           setSavedEntry(null);
           setAiDiffSummary("");
-          setPlanTags([]);
-          setActualTags([]);
+          // Don't clear tags here - keep them for new entries
         }
       } catch (error) {
         console.error("Failed to load entry:", error);
       }
     }
     loadEntry();
-  }, [selectedDateString]);
+  }, [selectedDateString, user?.userId, isLoading]); // Also trigger when user changes
 
-  // Load monthly entries for calendar
+  // Load monthly entries for calendar (only when calendar is shown and user is logged in)
   useEffect(() => {
     async function loadMonthlyEntries() {
-      if (!showCalendar) return;
+      if (!showCalendar || !user || isLoading) return;
       try {
         const yearMonth = selectedDate.toISOString().slice(0, 7); // YYYY-MM
         const entries = await getDiaryEntriesByMonth(yearMonth);
@@ -194,12 +229,12 @@ function DiaryApp() {
       }
     }
     loadMonthlyEntries();
-  }, [selectedDate, showCalendar]);
+  }, [selectedDate, showCalendar, user?.userId, isLoading]);
 
-  // Auto load activity suggestions for empty plan days
+  // Auto load activity suggestions for empty plan days (optimized)
   useEffect(() => {
     async function loadAutoSuggestions() {
-      if (!user || planInput.trim() || planPage.text || loading) return;
+      if (!user || planInput.trim() || planPage.text || loading || isLoading) return;
 
       try {
         const suggestions = await getActivitySuggestions({
@@ -214,9 +249,9 @@ function DiaryApp() {
     }
 
     // 予定が空の場合のみ、少し遅延を入れて自動提案を読み込む
-    const timer = setTimeout(loadAutoSuggestions, 1000);
+    const timer = setTimeout(loadAutoSuggestions, 1500); // Slightly longer delay
     return () => clearTimeout(timer);
-  }, [user, planInput, planPage.text, selectedDateString, loading]);
+  }, [user?.userId, planInput, planPage.text, selectedDateString, loading, isLoading]);
 
   async function handleGeneratePlan() {
     setPlanPage((prev) => ({ ...prev, loading: true }));
@@ -455,7 +490,13 @@ function DiaryApp() {
 
     // Save tag to library
     if (!savedTags.includes(normalizedTag)) {
-      setSavedTags([...savedTags, normalizedTag]);
+      const newSavedTags = [...savedTags, normalizedTag];
+      setSavedTags(newSavedTags);
+
+      // Save to localStorage
+      if (user?.userId) {
+        localStorage.setItem(`savedTags_${user.userId}`, JSON.stringify(newSavedTags));
+      }
     }
   }
 
@@ -470,15 +511,20 @@ function DiaryApp() {
   function saveTaggedPlan(text: string, tags: string[]) {
     if (!text.trim() || tags.length === 0) return;
 
+    const newTaggedPlans = { ...taggedPlans };
     tags.forEach(tag => {
-      const existing = taggedPlans[tag] || [];
+      const existing = newTaggedPlans[tag] || [];
       if (!existing.includes(text)) {
-        setTaggedPlans(prev => ({
-          ...prev,
-          [tag]: [...existing, text]
-        }));
+        newTaggedPlans[tag] = [...existing, text];
       }
     });
+
+    setTaggedPlans(newTaggedPlans);
+
+    // Save to localStorage
+    if (user?.userId) {
+      localStorage.setItem(`taggedPlans_${user.userId}`, JSON.stringify(newTaggedPlans));
+    }
   }
 
   function loadTaggedPlan(text: string) {
