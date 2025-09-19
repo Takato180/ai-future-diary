@@ -344,6 +344,18 @@ async def get_user(user_id: str) -> Optional[UserResponse]:
         userId=user_data["userId"],
         userName=user_data["userName"],
         coverImageUrl=user_data.get("coverImageUrl"),
+        birth_date=user_data.get("birth_date"),
+        gender=user_data.get("gender"),
+        occupation=user_data.get("occupation"),
+        hobbies=user_data.get("hobbies"),
+        favorite_places=user_data.get("favorite_places"),
+        family_structure=user_data.get("family_structure"),
+        living_area=user_data.get("living_area"),
+        prefecture=user_data.get("prefecture"),
+        city=user_data.get("city"),
+        favorite_colors=user_data.get("favorite_colors", []),
+        personality_type=user_data.get("personality_type"),
+        favorite_season=user_data.get("favorite_season"),
         createdAt=user_data["createdAt"]
     )
 
