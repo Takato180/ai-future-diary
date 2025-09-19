@@ -106,6 +106,8 @@ function DiaryApp() {
   const [actualTags, setActualTags] = useState<string[]>([]);
   const [showTagLibrary, setShowTagLibrary] = useState(false);
   const [taggedPlans, setTaggedPlans] = useState<{ [key: string]: string[] }>({});
+  const [planInputHistory, setPlanInputHistory] = useState<string>("");
+  const [actualInputHistory, setActualInputHistory] = useState<string>("");
 
   const diffSummary = useMemo(
     () => buildDiffSummary(planPage.text, actualPage.text),
@@ -138,6 +140,12 @@ function DiaryApp() {
       setActualTags([]);
       setSavedEntry(null);
       setMonthlyEntries([]);
+
+      // Always clear uploaded images when user changes (they are date-specific)
+      setPlanImageUpload(null);
+      setActualImageUpload(null);
+      setPlanImagePreview(null);
+      setActualImagePreview(null);
 
       // Load user-specific persistent data
       if (user?.userId) {
@@ -202,6 +210,12 @@ function DiaryApp() {
             setPlanTags(entry.tags);
             setActualTags([]);
           }
+          if (entry.planInputPrompt) {
+            setPlanInputHistory(entry.planInputPrompt);
+          }
+          if (entry.actualInputPrompt) {
+            setActualInputHistory(entry.actualInputPrompt);
+          }
         } else {
           // No entry found - this is expected for new dates
           setSavedEntry(null);
@@ -255,6 +269,10 @@ function DiaryApp() {
 
   async function handleGeneratePlan() {
     setPlanPage((prev) => ({ ...prev, loading: true }));
+
+    // Save user input for editing later
+    setPlanInputHistory(planInput);
+
     try {
       const textResult = await generateFutureDiary({
         plan: planInput || undefined,
@@ -293,6 +311,10 @@ function DiaryApp() {
   async function handleGenerateActual() {
     if (!actualInput.trim()) return;
     setActualPage((prev) => ({ ...prev, loading: true }));
+
+    // Save user input for editing later
+    setActualInputHistory(actualInput);
+
     try {
       const textResult = await generateTodayReflection({
         reflection_text: actualInput,
@@ -347,6 +369,8 @@ function DiaryApp() {
         date: selectedDateString,
         planImageUrl,
         actualImageUrl,
+        planInputPrompt: planInputHistory,
+        actualInputPrompt: actualInputHistory,
         tags: [...planTags, ...actualTags],
         ...updates,
       });
@@ -441,10 +465,16 @@ function DiaryApp() {
     setPlanPage({ text: "", imageUrl: null, loading: false });
     setActualPage({ text: "", imageUrl: null, loading: false });
     setAiDiffSummary("");
+    // Clear uploaded images when changing dates
     setPlanImageUpload(null);
     setActualImageUpload(null);
     setPlanImagePreview(null);
     setActualImagePreview(null);
+    // Clear tags when changing dates
+    setPlanTags([]);
+    setActualTags([]);
+    setAutoSuggestions([]);
+    setShowAutoSuggestions(false);
   }
 
   function handleImageUpload(file: File, type: 'plan' | 'actual') {
@@ -680,7 +710,9 @@ function DiaryApp() {
                     hasEntry: !!entry,
                     planText: entry?.planText,
                     actualText: entry?.actualText,
-                    shouldShowIndicator: entry && (entry.planText || entry.actualText)
+                    shouldShowIndicator: entry && (entry.planText || entry.actualText),
+                    monthlyEntriesCount: monthlyEntries.length,
+                    monthlyEntries: monthlyEntries.slice(0, 3) // Show first 3 entries
                   });
                 }
 
@@ -986,6 +1018,22 @@ function DiaryApp() {
 
               {(planPage.text || planPage.imageUrl) && (
                 <div className="mt-6 space-y-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+                  {planInputHistory && (
+                    <div className="border-b border-blue-200 pb-3 mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-blue-600">元の入力</span>
+                        <button
+                          onClick={() => setPlanInput(planInputHistory)}
+                          className="text-xs text-blue-500 hover:text-blue-700 underline"
+                        >
+                          編集に戻す
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-600 bg-white/50 rounded-lg p-2">
+                        {planInputHistory}
+                      </p>
+                    </div>
+                  )}
                   {planPage.imageUrl && (
                     <div className="overflow-hidden rounded-2xl border border-blue-100">
                       <Image
@@ -1077,6 +1125,22 @@ function DiaryApp() {
               </div>
               {(actualPage.text || actualPage.imageUrl) && (
                 <div className="mt-6 space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                  {actualInputHistory && (
+                    <div className="border-b border-emerald-200 pb-3 mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-emerald-600">元の入力</span>
+                        <button
+                          onClick={() => setActualInput(actualInputHistory)}
+                          className="text-xs text-emerald-500 hover:text-emerald-700 underline"
+                        >
+                          編集に戻す
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-600 bg-white/50 rounded-lg p-2">
+                        {actualInputHistory}
+                      </p>
+                    </div>
+                  )}
                   {actualPage.imageUrl && (
                     <div className="overflow-hidden rounded-2xl border border-emerald-100">
                       <Image

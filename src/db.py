@@ -91,8 +91,10 @@ class DiaryEntry(BaseModel):
     date: str  # YYYY-MM-DD format
     planText: Optional[str] = None
     planImageUrl: Optional[str] = None
+    planInputPrompt: Optional[str] = None  # User's original input for plan
     actualText: Optional[str] = None
     actualImageUrl: Optional[str] = None
+    actualInputPrompt: Optional[str] = None  # User's original input for actual
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -104,8 +106,10 @@ class DiaryEntryCreate(BaseModel):
     date: str
     planText: Optional[str] = None
     planImageUrl: Optional[str] = None
+    planInputPrompt: Optional[str] = None
     actualText: Optional[str] = None
     actualImageUrl: Optional[str] = None
+    actualInputPrompt: Optional[str] = None
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
 
@@ -114,8 +118,10 @@ class DiaryEntryResponse(BaseModel):
     date: str
     planText: Optional[str] = None
     planImageUrl: Optional[str] = None
+    planInputPrompt: Optional[str] = None
     actualText: Optional[str] = None
     actualImageUrl: Optional[str] = None
+    actualInputPrompt: Optional[str] = None
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     createdAt: datetime

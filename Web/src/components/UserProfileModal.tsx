@@ -32,6 +32,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
 
   // ユーザー情報をフォームに反映
   useEffect(() => {
+    console.log('[DEBUG] UserProfileModal user data:', user);
     if (user) {
       setFormData({
         birth_date: user.birth_date || '',
@@ -46,6 +47,12 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
         favorite_colors: user.favorite_colors || [],
         personality_type: user.personality_type || '',
         favorite_season: user.favorite_season || '',
+      });
+      console.log('[DEBUG] Form data set from user:', {
+        birth_date: user.birth_date,
+        gender: user.gender,
+        occupation: user.occupation,
+        hobbies: user.hobbies
       });
     }
   }, [user]);

@@ -115,8 +115,10 @@ export interface DiaryEntry {
   date: string; // YYYY-MM-DD
   planText?: string;
   planImageUrl?: string;
+  planInputPrompt?: string;
   actualText?: string;
   actualImageUrl?: string;
+  actualInputPrompt?: string;
   diffText?: string;
   tags?: string[];
   createdAt: string;
@@ -129,8 +131,10 @@ export interface DiaryEntryCreate {
   date: string;
   planText?: string;
   planImageUrl?: string;
+  planInputPrompt?: string;
   actualText?: string;
   actualImageUrl?: string;
+  actualInputPrompt?: string;
   diffText?: string;
   tags?: string[];
 }
