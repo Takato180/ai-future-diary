@@ -1,304 +1,339 @@
-'use client';
+﻿"use client";
 
-import { useState } from 'react';
-import Image from 'next/image';
-import { 
-  generateFutureDiary, 
-  generateTodayReflection, 
-  generateImage, 
-  API 
-} from '@/lib/api';
+import Image from "next/image";
+import { useMemo, useState } from "react";
+import {
+  API,
+  generateFutureDiary,
+  generateImage,
+  generateTodayReflection,
+} from "@/lib/api";
 
-interface DiaryPage {
+type DiaryPageState = {
   text: string;
   imageUrl: string | null;
   loading: boolean;
+};
+
+const INTEREST_PRESETS = ["読書", "散歩", "映画鑑賞", "カフェ", "ストレッチ"];
+
+type DiffSummary = {
+  message: string;
+  addedKeywords: string[];
+  removedKeywords: string[];
+  planLength: number;
+  actualLength: number;
+};
+
+function buildDiffSummary(planText: string, actualText: string): DiffSummary | null {
+  const plan = planText.trim();
+  const actual = actualText.trim();
+  if (!plan && !actual) return null;
+
+  const planLength = plan.length;
+  const actualLength = actual.length;
+  const delta = actualLength - planLength;
+
+  let message: string;
+  if (Math.abs(delta) <= 15) {
+    message = "文字量はほぼ同じです。";
+  } else if (delta > 0) {
+    message = `実際の文章は予定よりも約 ${delta} 文字長くなりました。`;
+  } else {
+    message = `実際の文章は予定よりも約 ${Math.abs(delta)} 文字短くまとまりました。`;
+  }
+
+  const tokenize = (value: string) => value.split(/\s+/).map((token) => token.trim()).filter(Boolean);
+  const planTokens = new Set(tokenize(plan));
+  const actualTokens = new Set(tokenize(actual));
+
+  const addedKeywords = Array.from(actualTokens).filter((token) => !planTokens.has(token)).slice(0, 5);
+  const removedKeywords = Array.from(planTokens).filter((token) => !actualTokens.has(token)).slice(0, 5);
+
+  return {
+    message,
+    addedKeywords,
+    removedKeywords,
+    planLength,
+    actualLength,
+  };
 }
 
-export default function Home() {
-  // 選択された日付
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  
-  // 左ページ（予定）の状態
-  const [plan, setPlan] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
-  const [planPage, setPlanPage] = useState<DiaryPage>({
-    text: '',
-    imageUrl: null,
-    loading: false
-  });
+export default function HomePage() {
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [planInput, setPlanInput] = useState("");
+  const [interestList, setInterestList] = useState<string[]>([]);
+  const [actualInput, setActualInput] = useState("");
+  const [planPage, setPlanPage] = useState<DiaryPageState>({ text: "", imageUrl: null, loading: false });
+  const [actualPage, setActualPage] = useState<DiaryPageState>({ text: "", imageUrl: null, loading: false });
 
-  // 右ページ（実際）の状態
-  const [actualReflection, setActualReflection] = useState('');
-  const [actualPage, setActualPage] = useState<DiaryPage>({
-    text: '',
-    imageUrl: null,
-    loading: false
-  });
+  const diffSummary = useMemo(
+    () => buildDiffSummary(planPage.text, actualPage.text),
+    [planPage.text, actualPage.text],
+  );
 
   async function handleGeneratePlan() {
-    console.log('予定日記生成開始');
-    setPlanPage(prev => ({ ...prev, loading: true }));
+    setPlanPage((prev) => ({ ...prev, loading: true }));
     try {
-      console.log('API URL:', API);
-      
-      // テキスト生成
-      console.log('テキスト生成中...');
       const textResult = await generateFutureDiary({
-        plan: plan || undefined,
-        interests: interests.length > 0 ? interests : undefined,
-        style: 'casual'
+        plan: planInput || undefined,
+        interests: interestList.length > 0 ? interestList : undefined,
+        style: "casual",
       });
-      console.log('テキスト生成成功:', textResult);
 
-      setPlanPage(prev => ({ ...prev, text: textResult.generated_text }));
-
-      // 画像生成
-      console.log('画像生成中...');
       const imageResult = await generateImage({
         prompt: textResult.image_prompt,
-        style: 'watercolor',
-        aspect_ratio: '1:1'
+        style: "watercolor",
+        aspect_ratio: "1:1",
       });
-      console.log('画像生成成功:', imageResult);
 
-      setPlanPage(prev => ({ 
-        ...prev, 
+      setPlanPage({
+        text: textResult.generated_text,
         imageUrl: imageResult.public_url || null,
-        loading: false
-      }));
-
+        loading: false,
+      });
     } catch (error) {
-      console.error('Plan generation failed:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      alert(`エラー: ${errorMessage}`);
-      setPlanPage(prev => ({ ...prev, loading: false }));
+      console.error("Plan generation failed", error);
+      alert("予定日記の生成に失敗しました。時間を置いて再度お試しください。");
+      setPlanPage((prev) => ({ ...prev, loading: false }));
     }
   }
 
   async function handleGenerateActual() {
-    if (!actualReflection.trim()) return;
-
-    console.log('実際の振り返り生成開始');
-    setActualPage(prev => ({ ...prev, loading: true }));
+    if (!actualInput.trim()) return;
+    setActualPage((prev) => ({ ...prev, loading: true }));
     try {
-      // テキスト生成
-      console.log('実際テキスト生成中...');
       const textResult = await generateTodayReflection({
-        reflection_text: actualReflection,
-        style: 'diary'
+        reflection_text: actualInput,
+        style: "diary",
       });
-      console.log('実際テキスト生成成功:', textResult);
 
-      setActualPage(prev => ({ ...prev, text: textResult.generated_text }));
-
-      // 画像生成
-      console.log('実際画像生成中...');
       const imageResult = await generateImage({
         prompt: textResult.image_prompt,
-        style: 'watercolor',
-        aspect_ratio: '1:1'
+        style: "watercolor",
+        aspect_ratio: "1:1",
       });
-      console.log('実際画像生成成功:', imageResult);
 
-      setActualPage(prev => ({ 
-        ...prev, 
+      setActualPage({
+        text: textResult.generated_text,
         imageUrl: imageResult.public_url || null,
-        loading: false
-      }));
-
+        loading: false,
+      });
     } catch (error) {
-      console.error('Actual reflection generation failed:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      alert(`エラー: ${errorMessage}`);
-      setActualPage(prev => ({ ...prev, loading: false }));
+      console.error("Reflection generation failed", error);
+      alert("実際日記の生成に失敗しました。時間を置いて再度お試しください。");
+      setActualPage((prev) => ({ ...prev, loading: false }));
     }
   }
 
   function handleSuggestActivities() {
-    const commonInterests = ['読書', '散歩', '映画鑑賞', 'ゲーム', '料理'];
-    setInterests(commonInterests);
-    setPlan('');
+    setInterestList(INTEREST_PRESETS);
+    setPlanInput("");
   }
 
-  // 日付を変更する関数
-  function handleDateChange(days: number) {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + days);
-    setSelectedDate(newDate);
-    // 日付変更時にデータをクリア（本来はローカルストレージから読み込み）
-    setPlan('');
-    setActualReflection('');
-    setPlanPage({ text: '', imageUrl: null, loading: false });
-    setActualPage({ text: '', imageUrl: null, loading: false });
-    setInterests([]);
+  function handleDateChange(offset: number) {
+    setSelectedDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() + offset);
+      return next;
+    });
+    setPlanInput("");
+    setInterestList([]);
+    setActualInput("");
+    setPlanPage({ text: "", imageUrl: null, loading: false });
+    setActualPage({ text: "", imageUrl: null, loading: false });
   }
+
+  const selectedDateLabel = `${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月${selectedDate.getDate()}日`;
+
+  const notebookBackground = {
+    backgroundImage:
+      "linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.9) 100%), repeating-linear-gradient(transparent, transparent 46px, rgba(0,0,0,0.04) 47px)",
+    backgroundSize: "100% 100%, 24px 48px",
+  } as const;
 
   return (
-    <div className="min-h-screen bg-amber-50">
-      {/* ヘッダー・カレンダーナビゲーション */}
-      <div className="bg-white shadow-sm border-b border-gray-200 p-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">AI日記</h1>
-          
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => handleDateChange(-1)}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm"
-            >
-              ← 前日
-            </button>
-            
-            <div className="text-lg font-medium text-gray-700">
-              {selectedDate.toLocaleDateString('ja-JP', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric',
-                weekday: 'short'
-              })}
-            </div>
-            
-            <button 
-              onClick={() => handleDateChange(1)}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm"
-            >
-              翌日 →
-            </button>
-            
-            <button 
-              onClick={() => setSelectedDate(new Date())}
-              className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-sm"
-            >
-              今日
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#f5ede1] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.7),transparent_60%)] pb-16">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12">
+        <header className="text-center lg:text-left">
+          <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Future Diary</p>
+          <h1 className="text-3xl font-semibold text-slate-900">未来日記ノート</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            未来の予定と実際の出来事を書き留めて、ノートをめくるように振り返りましょう。
+          </p>
+        </header>
 
-      {/* 見開きノートレイアウト */}
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white shadow-xl rounded-lg overflow-hidden mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
-            
-            {/* 左ページ：予定 */}
-            <div className="bg-white p-8 lg:border-r border-gray-200">
-              <div className="text-center mb-6">
-                <div className="text-sm text-gray-500 mb-2">予定</div>
-              </div>
-            
-              <div className="space-y-6">
-                <div>
-                  <textarea
-                    className="w-full border-none outline-none resize-none text-gray-700 placeholder-gray-400 leading-relaxed h-32"
-                    placeholder="予定を書いてください..."
-                    value={plan}
-                    onChange={e => setPlan(e.target.value)}
-                  />
-                </div>
-                
-                <div className="text-center">
-                  <span className="text-gray-400 text-sm">または</span>
-                </div>
+        <section className="flex items-center justify-between rounded-3xl bg-white/70 px-5 py-4 shadow-sm backdrop-blur">
+          <button
+            type="button"
+            onClick={() => handleDateChange(-1)}
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
+          >
+            前の日へ
+          </button>
+          <div className="text-lg font-semibold text-slate-800">{selectedDateLabel}</div>
+          <button
+            type="button"
+            onClick={() => handleDateChange(1)}
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
+          >
+            次の日へ
+          </button>
+        </section>
 
+        <div className="relative overflow-hidden rounded-[40px] bg-[#fffaf2] shadow-[0_35px_60px_-25px_rgba(51,35,17,0.3)]" style={notebookBackground}>
+          <div className="pointer-events-none absolute inset-y-6 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-rose-200/60 shadow-[4px_0_18px_rgba(0,0,0,0.15)]"></div>
+          {Array.from({ length: 5 }, (_, index) => 80 + index * 120).map((offset) => (
+            <div
+              key={offset}
+              className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 rounded-full bg-rose-300/50 shadow-[inset_1px_1px_4px_rgba(0,0,0,0.25)]"
+              style={{ left: "5.5rem", top: `${offset}px` }}
+            ></div>
+          ))}
+          {Array.from({ length: 5 }, (_, index) => 80 + index * 120).map((offset) => (
+            <div
+              key={`right-${offset}`}
+              className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 rounded-full bg-rose-300/50 shadow-[inset_1px_1px_4px_rgba(0,0,0,0.25)]"
+              style={{ left: "calc(100% - 5.5rem)", top: `${offset}px` }}
+            ></div>
+          ))}
+
+          <div className="relative grid gap-8 p-10 lg:grid-cols-2">
+            <article className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-8 shadow-sm">
+              <h2 className="text-lg font-semibold text-blue-700">未来の予定</h2>
+              <textarea
+                value={planInput}
+                onChange={(event) => setPlanInput(event.target.value)}
+                placeholder="やりたいこと、訪れたい場所、身につけたい習慣などをメモしましょう。"
+                className="mt-4 h-28 w-full resize-none rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-700 outline-none focus:border-blue-300 focus:ring"
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                {interestList.map((tag) => (
+                  <span key={tag} className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">
+                    {tag}
+                  </span>
+                ))}
                 <button
+                  type="button"
                   onClick={handleSuggestActivities}
-                  className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2 px-4 rounded-md transition-colors text-sm"
+                  className="rounded-full border border-blue-200 px-3 py-1 text-xs text-blue-600 transition hover:bg-blue-50"
                 >
-                  おすすめ活動を提案
-                </button>
-
-                {interests.length > 0 && (
-                  <div className="text-sm text-gray-500">
-                    提案: {interests.join('、')}
-                  </div>
-                )}
-                
-                <button
-                  onClick={handleGeneratePlan}
-                  disabled={(!plan.trim() && interests.length === 0) || planPage.loading}
-                  className="w-full bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 text-blue-800 font-medium py-2 px-4 rounded-md transition-colors text-sm"
-                >
-                  {planPage.loading ? '生成中...' : '予定日記を作成'}
+                  プリセットを追加
                 </button>
               </div>
-
-              {/* 予定日記表示エリア */}
+              <button
+                type="button"
+                onClick={handleGeneratePlan}
+                disabled={planPage.loading}
+                className="mt-4 w-full rounded-2xl bg-blue-500 py-3 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:bg-slate-200"
+              >
+                {planPage.loading ? "生成中..." : "未来日記を生成"}
+              </button>
               {(planPage.text || planPage.imageUrl) && (
-                <div className="mt-8 space-y-6">
+                <div className="mt-6 space-y-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
                   {planPage.imageUrl && (
-                    <div className="text-center">
-                      <Image 
-                        src={planPage.imageUrl} 
-                        alt="予定の挿絵" 
-                        width={300}
-                        height={200}
-                        className="rounded-lg shadow-sm"
+                    <div className="overflow-hidden rounded-2xl border border-blue-100">
+                      <Image
+                        src={planPage.imageUrl}
+                        alt="未来日記の挿絵"
+                        width={640}
+                        height={480}
+                        className="h-56 w-full object-cover"
                       />
                     </div>
                   )}
                   {planPage.text && (
-                    <div className="text-gray-800 bg-transparent">
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
                       {planPage.text}
-                    </div>
+                    </p>
                   )}
                 </div>
               )}
-          </div>
+            </article>
 
-            {/* 右ページ：実際 */}
-            <div className="bg-white p-8">
-              <div className="text-center mb-6">
-                <div className="text-sm text-gray-500 mb-2">実際</div>
-              </div>
-            
-              <div className="space-y-6">
-                <div>
-                  <textarea
-                    className="w-full border-none outline-none resize-none text-gray-700 placeholder-gray-400 leading-relaxed h-32"
-                    placeholder="実際にあったことを書いてください..."
-                    value={actualReflection}
-                    onChange={e => setActualReflection(e.target.value)}
-                  />
-                </div>
-                
-                <button
-                  onClick={handleGenerateActual}
-                  disabled={!actualReflection.trim() || actualPage.loading}
-                  className="w-full bg-green-100 hover:bg-green-200 disabled:bg-gray-100 text-green-800 font-medium py-2 px-4 rounded-md transition-colors text-sm"
-                >
-                  {actualPage.loading ? '生成中...' : '実際日記を作成'}
-                </button>
-              </div>
-
-              {/* 実際日記表示エリア */}
+            <article className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-8 shadow-sm">
+              <h2 className="text-lg font-semibold text-emerald-700">実際の出来事</h2>
+              <textarea
+                value={actualInput}
+                onChange={(event) => setActualInput(event.target.value)}
+                placeholder="一日の振り返りや気づきを書き残しましょう。"
+                className="mt-4 h-28 w-full resize-none rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-700 outline-none focus:border-emerald-300 focus:ring"
+              />
+              <button
+                type="button"
+                onClick={handleGenerateActual}
+                disabled={actualPage.loading || !actualInput.trim()}
+                className="mt-4 w-full rounded-2xl bg-emerald-500 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:bg-slate-200"
+              >
+                {actualPage.loading ? "生成中..." : "実際の日記を生成"}
+              </button>
               {(actualPage.text || actualPage.imageUrl) && (
-                <div className="mt-8 space-y-6">
+                <div className="mt-6 space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
                   {actualPage.imageUrl && (
-                    <div className="text-center">
-                      <Image 
-                        src={actualPage.imageUrl} 
-                        alt="実際の挿絵" 
-                        width={300}
-                        height={200}
-                        className="rounded-lg shadow-sm"
+                    <div className="overflow-hidden rounded-2xl border border-emerald-100">
+                      <Image
+                        src={actualPage.imageUrl}
+                        alt="実際日記の挿絵"
+                        width={640}
+                        height={480}
+                        className="h-56 w-full object-cover"
                       />
                     </div>
                   )}
                   {actualPage.text && (
-                    <div className="text-gray-800 bg-transparent">
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
                       {actualPage.text}
-                    </div>
+                    </p>
                   )}
                 </div>
               )}
-            </div>
+            </article>
           </div>
         </div>
-        
-        {/* フッター */}
-        <div className="text-center text-xs text-gray-400 py-4">
-          API: {API}
-        </div>
+
+        <section className="rounded-[32px] border border-slate-200/60 bg-white/90 p-6 shadow-lg">
+          <h2 className="text-lg font-semibold text-slate-800">差分要約</h2>
+          {diffSummary ? (
+            <div className="mt-4 space-y-3 text-sm text-slate-700">
+              <p>{diffSummary.message}</p>
+              <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+                <span>予定: {diffSummary.planLength}文字</span>
+                <span>実際: {diffSummary.actualLength}文字</span>
+              </div>
+              {diffSummary.addedKeywords.length > 0 && (
+                <p>
+                  追加されたキーワード: <span className="font-medium text-emerald-600">{diffSummary.addedKeywords.join(", ")}</span>
+                </p>
+              )}
+              {diffSummary.removedKeywords.length > 0 && (
+                <p>
+                  予定にのみ含まれていたキーワード: <span className="font-medium text-rose-600">{diffSummary.removedKeywords.join(", ")}</span>
+                </p>
+              )}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-xs text-slate-600">
+                <p className="font-semibold text-slate-500">抜粋メモ</p>
+                {planPage.text && (
+                  <p className="mt-2">
+                    <span className="font-semibold text-blue-600">予定:</span> {planPage.text.slice(0, 60)}{planPage.text.length > 60 ? "…" : ""}
+                  </p>
+                )}
+                {actualPage.text && (
+                  <p className="mt-2">
+                    <span className="font-semibold text-emerald-600">実際:</span> {actualPage.text.slice(0, 60)}{actualPage.text.length > 60 ? "…" : ""}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">
+              差分を表示するには、まず未来日記と実際の日記の両方を生成してください。
+            </p>
+          )}
+        </section>
+
+        <footer className="text-center text-xs text-slate-400">
+          API base: {API}
+        </footer>
       </div>
     </div>
   );
