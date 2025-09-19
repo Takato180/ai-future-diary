@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { regenerateCover } from '@/lib/api';
 import UserProfileModal from './UserProfileModal';
+import Portal from './Portal';
 
 export default function UserHeader() {
   const { user, token, logout } = useAuth();
@@ -13,6 +14,8 @@ export default function UserHeader() {
   const [coverImageUrl, setCoverImageUrl] = useState(user?.coverImageUrl || '');
   const [showCoverModal, setShowCoverModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
 
   // ESCキーで表紙モーダルを閉じる
   useEffect(() => {
@@ -27,6 +30,28 @@ export default function UserHeader() {
       return () => document.removeEventListener('keydown', handleEscape);
     }
   }, [showCoverModal]);
+
+  // スクロール防止とドロップダウン位置計算
+  useEffect(() => {
+    if (showDropdown || showCoverModal || showProfileModal) {
+      document.body.style.overflow = 'hidden';
+
+      // ドロップダウンの位置を計算
+      if (showDropdown && buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownPosition({
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right
+        });
+      }
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showDropdown, showCoverModal, showProfileModal]);
 
   if (!user) return null;
 
@@ -84,6 +109,7 @@ export default function UserHeader() {
         {/* 右側: ユーザーメニュー */}
         <div className="relative">
           <button
+            ref={buttonRef}
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
           >
@@ -101,9 +127,19 @@ export default function UserHeader() {
             </svg>
           </button>
 
-          {/* ドロップダウンメニュー */}
-          {showDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl shadow-2xl border-2 border-blue-200 py-2 z-50 backdrop-blur-sm">
+        </div>
+      </div>
+
+      {/* ドロップダウンメニュー（ポータル） */}
+      {showDropdown && (
+        <Portal>
+          <div
+            className="fixed w-64 bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl shadow-2xl border-2 border-blue-200 py-2 z-[9999] backdrop-blur-sm"
+            style={{
+              top: `${dropdownPosition.top}px`,
+              right: `${dropdownPosition.right}px`
+            }}
+          >
               <div className="px-4 py-3 border-b border-slate-100">
                 <p className="font-medium text-slate-800">{user.userName}さん</p>
                 <p className="text-xs text-slate-500">
@@ -145,56 +181,50 @@ export default function UserHeader() {
                 ログアウト
               </button>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* 閉じるためのオーバーレイ */}
-      {showDropdown && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowDropdown(false)}
-        />
+          {/* ドロップダウン用オーバーレイ */}
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => setShowDropdown(false)}
+          />
+        </Portal>
       )}
 
-      {/* 表紙拡大モーダル */}
+      {/* 表紙拡大モーダル（ポータル） */}
       {showCoverModal && coverImageUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="relative w-full h-full max-w-4xl max-h-[90vh] flex items-center justify-center">
+        <Portal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
             {/* 閉じるボタン */}
             <button
               onClick={() => setShowCoverModal(false)}
-              className="absolute top-4 right-4 z-20 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+              className="absolute top-6 right-6 z-10 w-14 h-14 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-colors"
             >
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-7 h-7 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 
-            {/* 拡大画像 */}
-            <div className="relative w-full h-full flex items-center justify-center">
-              <Image
-                src={coverImageUrl}
-                alt={`${user.userName}さんの日記帳表紙（拡大表示）`}
-                fill
-                className="object-contain rounded-2xl shadow-2xl"
-                sizes="(max-width: 1024px) 90vw, 80vw"
-              />
-            </div>
+            {/* 拡大画像 - imgタグで直接サイズ指定 */}
+            <img
+              src={coverImageUrl}
+              alt={`${user.userName}さんの日記帳表紙（拡大表示）`}
+              className="max-w-[92vw] max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+            />
 
             {/* 画像情報 */}
-            <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg z-10">
+            <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-lg">
               <p className="text-sm font-medium text-gray-800">{user.userName}さんの日記帳表紙</p>
               <p className="text-xs text-gray-600">クリックまたはESCキーで閉じる</p>
             </div>
-          </div>
 
-          {/* モーダル背景クリックで閉じる */}
-          <div
-            className="absolute inset-0 -z-10"
-            onClick={() => setShowCoverModal(false)}
-          />
-        </div>
+            {/* モーダル背景クリックで閉じる */}
+            <div
+              className="absolute inset-0 -z-10"
+              onClick={() => setShowCoverModal(false)}
+            />
+          </div>
+        </Portal>
       )}
 
       {/* プロフィール編集モーダル */}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { updateUserProfile, UserProfileUpdate } from '@/lib/api';
+import Portal from './Portal';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
     }
   }, [user]);
 
-  // ESCキーでモーダルを閉じる
+  // ESCキーでモーダルを閉じる & スクロール防止
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -55,7 +56,11 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+        document.body.style.overflow = '';
+      };
     }
   }, [isOpen, onClose]);
 
@@ -99,7 +104,8 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
   const colorOptions = ['赤', '青', '緑', '黄', 'ピンク', '紫', 'オレンジ', '茶', '黒', '白'];
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+    <Portal>
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-start justify-center z-[9999] p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl p-8 w-full max-w-4xl my-8 shadow-2xl relative">
         {/* 閉じるボタン */}
         <button
@@ -383,6 +389,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </Portal>
   );
 }
