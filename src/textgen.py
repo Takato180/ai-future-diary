@@ -44,6 +44,16 @@ class TextGenerateResponse(BaseModel):
     generated_text: str
     image_prompt: str
 
+class ActivitySuggestionRequest(BaseModel):
+    user_id: str | None = None
+    date: str | None = None  # YYYY-MM-DD format
+    location_query: str | None = None  # 位置検索用（オプション）
+
+class ActivitySuggestionResponse(BaseModel):
+    suggestions: list[str]
+    local_events: list[str] = []
+    reasoning: str
+
 def _get_gemini_model():
     if not VERTEX_AVAILABLE:
         raise HTTPException(500, "Vertex AI is not available")
@@ -86,6 +96,15 @@ async def _get_user_profile_context(user_id: str | None) -> str:
             context_parts.append(f"家族構成: {user.family_structure}")
         if user.living_area:
             context_parts.append(f"住環境: {user.living_area}")
+
+        # 住所情報
+        location_parts = []
+        if user.prefecture:
+            location_parts.append(user.prefecture)
+        if user.city:
+            location_parts.append(user.city)
+        if location_parts:
+            context_parts.append(f"居住地: {' '.join(location_parts)}")
 
         # 好み
         if user.favorite_colors:
@@ -399,3 +418,89 @@ def get_writing_styles():
             {"key": "reflective", "name": "内省的", "description": "深く考える文体"}
         ]
     }
+
+@router.post("/activity-suggestions", response_model=ActivitySuggestionResponse)
+async def suggest_activities(request: ActivitySuggestionRequest):
+    """プロフィール情報とイベント情報をもとに活動を提案"""
+    try:
+        model = _get_gemini_model()
+
+        # プロフィール情報を取得
+        profile_context = await _get_user_profile_context(request.user_id)
+
+        # 現在の日付と季節情報を取得
+        from datetime import datetime
+
+        target_date = request.date or datetime.now().strftime("%Y-%m-%d")
+        current_date = datetime.now()
+        season = ["冬", "冬", "春", "春", "春", "夏", "夏", "夏", "秋", "秋", "秋", "冬"][current_date.month - 1]
+        weekday = ["月", "火", "水", "木", "金", "土", "日"][current_date.weekday()]
+
+        # AI提案を生成
+        prompt = f"""
+あなたは活動提案の専門家です。以下の情報をもとに、ユーザーにおすすめの活動を5つ提案してください。
+
+{profile_context}
+
+日付情報:
+- 対象日: {target_date}
+- 現在の季節: {season}
+- 曜日: {weekday}曜日
+
+要件:
+1. ユーザーのプロフィール（年齢、職種、趣味、住環境、性格など）を考慮
+2. 季節や曜日に適した活動を提案
+3. 実現可能で具体的な活動にする
+4. 1つの提案は20文字以内で簡潔に
+5. 多様性を持たせ、インドア・アウトドア・文化的活動をバランスよく
+
+また、なぜこれらの活動を提案したかの理由も100文字程度で説明してください。
+
+以下の形式で返答してください:
+```
+提案1: [活動名]
+提案2: [活動名]
+提案3: [活動名]
+提案4: [活動名]
+提案5: [活動名]
+理由: [提案理由の説明]
+```
+"""
+
+        response = model.generate_content(prompt)
+        result_text = response.text
+
+        # レスポンスをパース
+        suggestions = []
+        reasoning = ""
+
+        lines = result_text.replace('```', '').strip().split('\n')
+        for line in lines:
+            line = line.strip()
+            if line.startswith('提案') and ':' in line:
+                suggestion = line.split(':', 1)[1].strip()
+                if suggestion:
+                    suggestions.append(suggestion)
+            elif line.startswith('理由:'):
+                reasoning = line.split(':', 1)[1].strip()
+
+        # フォールバック
+        if not suggestions:
+            suggestions = ["散歩", "読書", "カフェでコーヒー", "ストレッチ", "音楽鑑賞"]
+        if not reasoning:
+            reasoning = "プロフィール情報をもとに、バランスの取れた活動を提案しました。"
+
+        return ActivitySuggestionResponse(
+            suggestions=suggestions,
+            local_events=[],
+            reasoning=reasoning
+        )
+
+    except Exception as e:
+        print(f"Activity suggestion failed: {e}")
+        # フォールバック提案
+        return ActivitySuggestionResponse(
+            suggestions=["散歩", "読書", "カフェでコーヒー", "ストレッチ", "音楽鑑賞"],
+            local_events=[],
+            reasoning="プロフィール情報の取得に失敗したため、一般的な活動を提案しています。"
+        )

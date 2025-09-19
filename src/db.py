@@ -37,6 +37,8 @@ class User(BaseModel):
     favorite_places: Optional[str] = None  # 好きな場所・よく行く場所
     family_structure: Optional[str] = None  # 一人暮らし/家族と同居/パートナーと二人暮らし/その他
     living_area: Optional[str] = None  # 都市部/郊外/田舎/海近く/山近く
+    prefecture: Optional[str] = None  # 都道府県
+    city: Optional[str] = None  # 市区町村
     favorite_colors: List[str] = Field(default_factory=list)  # 好きな色
     personality_type: Optional[str] = None  # アクティブ/インドア派/両方
     favorite_season: Optional[str] = None  # 春/夏/秋/冬
@@ -63,6 +65,8 @@ class UserResponse(BaseModel):
     favorite_places: Optional[str] = None
     family_structure: Optional[str] = None
     living_area: Optional[str] = None
+    prefecture: Optional[str] = None
+    city: Optional[str] = None
     favorite_colors: List[str] = Field(default_factory=list)
     personality_type: Optional[str] = None
     favorite_season: Optional[str] = None
@@ -76,6 +80,8 @@ class UserProfileUpdate(BaseModel):
     favorite_places: Optional[str] = None
     family_structure: Optional[str] = None
     living_area: Optional[str] = None
+    prefecture: Optional[str] = None
+    city: Optional[str] = None
     favorite_colors: List[str] = Field(default_factory=list)
     personality_type: Optional[str] = None
     favorite_season: Optional[str] = None

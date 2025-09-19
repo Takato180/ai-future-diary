@@ -11,6 +11,7 @@ import {
   getDiaryEntry,
   getDiaryEntriesByMonth,
   generateDiffSummary,
+  getActivitySuggestions,
   DiaryEntry,
 } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -155,6 +156,7 @@ function DiaryApp() {
         interests: interestList.length > 0 ? interestList : undefined,
         style: "casual",
         use_ai: planUseAI,
+        user_id: user?.userId,
       });
 
       const imageResult = await generateImage({
@@ -191,6 +193,7 @@ function DiaryApp() {
         reflection_text: actualInput,
         style: "diary",
         use_ai: actualUseAI,
+        user_id: user?.userId,
       });
 
       const imageResult = await generateImage({
@@ -250,9 +253,35 @@ function DiaryApp() {
     }
   }
 
-  function handleSuggestActivities() {
-    setInterestList(INTEREST_PRESETS);
-    setPlanInput("");
+  async function handleSuggestActivities() {
+    if (!user) {
+      alert("ログインが必要です");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const suggestions = await getActivitySuggestions({
+        user_id: user.userId,
+        date: selectedDateString,
+      });
+
+      // 提案された活動をinterestListに設定
+      setInterestList(suggestions.suggestions.slice(0, 5)); // 最大5個
+
+      // プランの入力欄に提案理由を追加（オプション）
+      if (suggestions.reasoning && !planInput.trim()) {
+        setPlanInput(`AI提案: ${suggestions.reasoning}`);
+      }
+
+      console.log("AI Activity Suggestions:", suggestions);
+    } catch (error) {
+      console.error("Failed to get activity suggestions:", error);
+      // フォールバック
+      setInterestList(["散歩", "読書", "カフェでコーヒー", "ストレッチ"]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleDateChange(offset: number) {
@@ -425,14 +454,14 @@ function DiaryApp() {
                     `}
                   >
                     {day}
-                    {entry && (
+                    {entry && (entry.planText || entry.actualText) && (
                       <div className={`
-                        absolute top-1 right-1 w-2 h-2 rounded-full
-                        ${entry.planText && entry.actualText
-                          ? 'bg-green-500'
-                          : entry.planText || entry.actualText
-                          ? 'bg-yellow-500'
-                          : 'bg-gray-300'
+                        absolute top-1 right-1 w-3 h-3 rounded-full border-2 border-white shadow-sm
+                        ${entry.actualText
+                          ? 'bg-green-500'  // 実際の出来事があれば緑
+                          : entry.planText
+                          ? 'bg-blue-500'   // 予定のみなら青
+                          : ''
                         }
                       `}></div>
                     )}
@@ -478,9 +507,22 @@ function DiaryApp() {
                 <button
                   type="button"
                   onClick={handleSuggestActivities}
-                  className="rounded-full border border-blue-200 px-3 py-1 text-xs text-blue-600 transition hover:bg-blue-50"
+                  disabled={loading}
+                  className="rounded-full border border-blue-200 px-3 py-1 text-xs text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                 >
-                  プリセットを追加
+                  {loading ? (
+                    <>
+                      <div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                      AI提案中...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      AI活動提案
+                    </>
+                  )}
                 </button>
               </div>
               <div className="mt-4 space-y-3">

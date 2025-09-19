@@ -23,6 +23,8 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
     favorite_places: '',
     family_structure: '',
     living_area: '',
+    prefecture: '',
+    city: '',
     favorite_colors: [],
     personality_type: '',
     favorite_season: '',
@@ -39,6 +41,8 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
         favorite_places: user.favorite_places || '',
         family_structure: user.family_structure || '',
         living_area: user.living_area || '',
+        prefecture: user.prefecture || '',
+        city: user.city || '',
         favorite_colors: user.favorite_colors || [],
         personality_type: user.personality_type || '',
         favorite_season: user.favorite_season || '',
@@ -286,6 +290,38 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
                   <option value="海近く">海近く</option>
                   <option value="山近く">山近く</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="prefecture" className="block text-sm font-medium text-slate-700 mb-2">
+                  都道府県
+                </label>
+                <input
+                  type="text"
+                  id="prefecture"
+                  name="prefecture"
+                  value={formData.prefecture}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  placeholder="例：東京都"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="city" className="block text-sm font-medium text-slate-700 mb-2">
+                  市区町村
+                </label>
+                <input
+                  type="text"
+                  id="city"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  placeholder="例：渋谷区"
+                />
               </div>
             </div>
           </div>

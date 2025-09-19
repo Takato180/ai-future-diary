@@ -220,6 +220,8 @@ export interface UserResponse {
   favorite_places?: string;
   family_structure?: string;
   living_area?: string;
+  prefecture?: string;
+  city?: string;
   favorite_colors?: string[];
   personality_type?: string;
   favorite_season?: string;
@@ -234,9 +236,23 @@ export interface UserProfileUpdate {
   favorite_places?: string;
   family_structure?: string;
   living_area?: string;
+  prefecture?: string;
+  city?: string;
   favorite_colors?: string[];
   personality_type?: string;
   favorite_season?: string;
+}
+
+export interface ActivitySuggestionRequest {
+  user_id?: string;
+  date?: string;
+  location_query?: string;
+}
+
+export interface ActivitySuggestionResponse {
+  suggestions: string[];
+  local_events: string[];
+  reasoning: string;
 }
 
 export interface AuthResponse {
@@ -294,6 +310,18 @@ export async function updateUserProfile(profileData: UserProfileUpdate, token: s
       'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify(profileData),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getActivitySuggestions(request: ActivitySuggestionRequest): Promise<ActivitySuggestionResponse> {
+  const r = await fetch(`${API}/text/activity-suggestions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
