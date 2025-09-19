@@ -26,12 +26,20 @@ type DiaryPageState = {
 
 const INTEREST_PRESETS = ["読書", "散歩", "映画鑑賞", "カフェ", "ストレッチ"];
 
+function cleanMarkdownArtifacts(text: string): string {
+  return text
+    .replace(/\*\*/g, '') // Remove bold markdown
+    .replace(/\*/g, '')   // Remove italic markdown
+    .replace(/^#+\s*/gm, '') // Remove heading markdown
+    .replace(/^-\s*/gm, '') // Remove list markdown
+    .replace(/`/g, '')    // Remove code markdown
+    .trim();
+}
+
 type DiffSummary = {
   message: string;
   addedKeywords: string[];
   removedKeywords: string[];
-  planLength: number;
-  actualLength: number;
 };
 
 function buildDiffSummary(planText: string, actualText: string): DiffSummary | null {
@@ -39,17 +47,13 @@ function buildDiffSummary(planText: string, actualText: string): DiffSummary | n
   const actual = actualText.trim();
   if (!plan && !actual) return null;
 
-  const planLength = plan.length;
-  const actualLength = actual.length;
-  const delta = actualLength - planLength;
-
   let message: string;
-  if (Math.abs(delta) <= 15) {
-    message = "文字量はほぼ同じです。";
-  } else if (delta > 0) {
-    message = `実際の文章は予定よりも約 ${delta} 文字長くなりました。`;
+  if (plan && actual) {
+    message = "予定と実際の活動内容を比較しました。";
+  } else if (plan && !actual) {
+    message = "予定は立てましたが、実際の活動は未記録です。";
   } else {
-    message = `実際の文章は予定よりも約 ${Math.abs(delta)} 文字短くまとまりました。`;
+    message = "実際の活動のみ記録されています。";
   }
 
   const tokenize = (value: string) => value.split(/\s+/).map((token) => token.trim()).filter(Boolean);
@@ -63,8 +67,6 @@ function buildDiffSummary(planText: string, actualText: string): DiffSummary | n
     message,
     addedKeywords,
     removedKeywords,
-    planLength,
-    actualLength,
   };
 }
 
@@ -535,7 +537,7 @@ function DiaryApp() {
                     className="rounded border-gray-300"
                   />
                   <label htmlFor="plan-use-ai" className="text-sm text-slate-600">
-                    AIで日記風に変換
+                    日記風に変換
                   </label>
                 </div>
                 <button
@@ -562,7 +564,7 @@ function DiaryApp() {
                   )}
                   {planPage.text && (
                     <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
-                      {planPage.text}
+                      {cleanMarkdownArtifacts(planPage.text)}
                     </p>
                   )}
                 </div>
@@ -587,7 +589,7 @@ function DiaryApp() {
                     className="rounded border-gray-300"
                   />
                   <label htmlFor="actual-use-ai" className="text-sm text-slate-600">
-                    AIで日記風に変換
+                    日記風に変換
                   </label>
                 </div>
                 <button
@@ -614,7 +616,7 @@ function DiaryApp() {
                   )}
                   {actualPage.text && (
                     <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
-                      {actualPage.text}
+                      {cleanMarkdownArtifacts(actualPage.text)}
                     </p>
                   )}
                 </div>
@@ -640,17 +642,13 @@ function DiaryApp() {
           {aiDiffSummary && (
             <div className="mb-6 rounded-2xl border border-violet-200 bg-violet-50/50 p-4">
               <h3 className="text-sm font-semibold text-violet-700 mb-2"> 一日の振り返り</h3>
-              <p className="text-sm text-slate-700 whitespace-pre-line">{aiDiffSummary}</p>
+              <p className="text-sm text-slate-700 whitespace-pre-line">{cleanMarkdownArtifacts(aiDiffSummary)}</p>
             </div>
           )}
 
           {diffSummary ? (
             <div className="mt-4 space-y-3 text-sm text-slate-700">
               <p>{diffSummary.message}</p>
-              <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-                <span>予定: {diffSummary.planLength}文字</span>
-                <span>実際: {diffSummary.actualLength}文字</span>
-              </div>
               {diffSummary.addedKeywords.length > 0 && (
                 <p>
                   追加されたキーワード: <span className="font-medium text-emerald-600">{diffSummary.addedKeywords.join(", ")}</span>
