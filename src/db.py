@@ -1,4 +1,6 @@
 import os
+import hashlib
+import secrets
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
@@ -22,6 +24,28 @@ except Exception as e:
     db = None
 
 # データモデル
+class User(BaseModel):
+    userId: str
+    userName: str
+    passwordHash: str  # あいことばのハッシュ
+    coverImageUrl: Optional[str] = None
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class UserCreate(BaseModel):
+    userName: str
+    password: str  # あいことば
+
+class UserLogin(BaseModel):
+    userName: str
+    password: str
+
+class UserResponse(BaseModel):
+    userId: str
+    userName: str
+    coverImageUrl: Optional[str] = None
+    createdAt: datetime
+
 class DiaryEntry(BaseModel):
     userId: str
     date: str  # YYYY-MM-DD format
@@ -192,6 +216,143 @@ async def generate_diff_summary(user_id: str, date: str, plan_text: str, actual_
 
     except Exception as e:
         return f"差分要約の生成に失敗しました: {str(e)}"
+
+# ユーザー管理機能
+def _hash_password(password: str) -> str:
+    """あいことばをハッシュ化"""
+    salt = secrets.token_hex(16)
+    password_hash = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+    return f"{salt}:{password_hash.hex()}"
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    """あいことばを検証"""
+    try:
+        salt, stored_hash = password_hash.split(':')
+        password_hash_check = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+        return stored_hash == password_hash_check.hex()
+    except:
+        return False
+
+async def create_user(user_create: UserCreate) -> UserResponse:
+    """新規ユーザー作成"""
+    if not db:
+        raise Exception("Firestore is not available")
+
+    # ユーザー名の重複チェック
+    existing_users = db.collection("users").where("userName", "==", user_create.userName).limit(1).get()
+    if existing_users:
+        raise Exception("このユーザー名は既に使用されています")
+
+    user_id = secrets.token_urlsafe(16)
+    password_hash = _hash_password(user_create.password)
+
+    now = datetime.now(timezone.utc)
+    user = User(
+        userId=user_id,
+        userName=user_create.userName,
+        passwordHash=password_hash,
+        createdAt=now,
+        updatedAt=now
+    )
+
+    # Firestoreに保存
+    db.collection("users").document(user_id).set(user.model_dump())
+
+    return UserResponse(
+        userId=user.userId,
+        userName=user.userName,
+        coverImageUrl=user.coverImageUrl,
+        createdAt=user.createdAt
+    )
+
+async def authenticate_user(user_login: UserLogin) -> Optional[UserResponse]:
+    """ユーザー認証"""
+    if not db:
+        raise Exception("Firestore is not available")
+
+    # ユーザー名でユーザーを検索
+    users = db.collection("users").where("userName", "==", user_login.userName).limit(1).get()
+
+    if not users:
+        return None
+
+    user_doc = users[0]
+    user_data = user_doc.to_dict()
+
+    # あいことばを検証
+    if not _verify_password(user_login.password, user_data["passwordHash"]):
+        return None
+
+    return UserResponse(
+        userId=user_data["userId"],
+        userName=user_data["userName"],
+        coverImageUrl=user_data.get("coverImageUrl"),
+        createdAt=user_data["createdAt"]
+    )
+
+async def get_user(user_id: str) -> Optional[UserResponse]:
+    """ユーザー情報を取得"""
+    if not db:
+        raise Exception("Firestore is not available")
+
+    user_doc = db.collection("users").document(user_id).get()
+    if not user_doc.exists:
+        return None
+
+    user_data = user_doc.to_dict()
+    return UserResponse(
+        userId=user_data["userId"],
+        userName=user_data["userName"],
+        coverImageUrl=user_data.get("coverImageUrl"),
+        createdAt=user_data["createdAt"]
+    )
+
+async def update_user_cover(user_id: str, cover_image_url: str) -> bool:
+    """ユーザーの表紙画像を更新"""
+    if not db:
+        raise Exception("Firestore is not available")
+
+    try:
+        db.collection("users").document(user_id).update({
+            "coverImageUrl": cover_image_url,
+            "updatedAt": datetime.now(timezone.utc)
+        })
+        return True
+    except Exception as e:
+        print(f"Failed to update user cover: {e}")
+        return False
+
+async def generate_user_cover(user_name: str) -> str:
+    """ユーザーの表紙画像を生成"""
+    from src.textgen import _get_gemini_model
+
+    try:
+        model = _get_gemini_model()
+
+        prompt = f"""
+{user_name}さんの日記帳の表紙画像を生成するプロンプトを作成してください。
+
+要件:
+1. 日記帳らしい温かみのあるデザイン
+2. {user_name}という名前を活かした個性的な要素
+3. 手作り感のある親しみやすい雰囲気
+4. 水彩画風で優しい色合い
+
+英語で画像生成プロンプトのみを返答してください:
+"""
+
+        response = model.generate_content(prompt)
+        image_prompt = response.text.strip()
+
+        if not image_prompt:
+            # フォールバック
+            image_prompt = f"watercolor style, handmade diary cover for {user_name}, warm and friendly design, soft pastel colors, journal notebook"
+
+        return image_prompt
+
+    except Exception as e:
+        print(f"Failed to generate cover prompt: {e}")
+        return f"watercolor style, handmade diary cover for {user_name}, warm and friendly design, soft pastel colors, journal notebook"
 
 def get_firestore_status() -> Dict[str, Any]:
     """Firestore接続状態を確認"""

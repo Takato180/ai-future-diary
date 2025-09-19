@@ -16,11 +16,13 @@ export interface FutureDiaryRequest {
   plan?: string;
   interests?: string[];
   style?: string;
+  use_ai?: boolean;
 }
 
 export interface TodayReflectionRequest {
   reflection_text: string;
   style?: string;
+  use_ai?: boolean;
 }
 
 export interface TextGenerateResponse {

@@ -76,6 +76,8 @@ export default function HomePage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [monthlyEntries, setMonthlyEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [planUseAI, setPlanUseAI] = useState(true);
+  const [actualUseAI, setActualUseAI] = useState(true);
 
   const diffSummary = useMemo(
     () => buildDiffSummary(planPage.text, actualPage.text),
@@ -139,6 +141,7 @@ export default function HomePage() {
         plan: planInput || undefined,
         interests: interestList.length > 0 ? interestList : undefined,
         style: "casual",
+        use_ai: planUseAI,
       });
 
       const imageResult = await generateImage({
@@ -174,6 +177,7 @@ export default function HomePage() {
       const textResult = await generateTodayReflection({
         reflection_text: actualInput,
         style: "diary",
+        use_ai: actualUseAI,
       });
 
       const imageResult = await generateImage({
@@ -226,8 +230,8 @@ export default function HomePage() {
       setAiDiffSummary(result.diffText);
       setSavedEntry(prev => prev ? { ...prev, diffText: result.diffText } : null);
     } catch (error) {
-      console.error("Failed to generate AI diff:", error);
-      alert("AI差分要約の生成に失敗しました。");
+      console.error("Failed to generate reflection summary:", error);
+      alert("振り返りサマリーの生成に失敗しました。");
     } finally {
       setLoading(false);
     }
@@ -429,14 +433,28 @@ export default function HomePage() {
                   プリセットを追加
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={handleGeneratePlan}
-                disabled={planPage.loading}
-                className="mt-4 w-full rounded-2xl bg-blue-500 py-3 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:bg-slate-200"
-              >
-                {planPage.loading ? "生成中..." : "未来日記を生成"}
-              </button>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="plan-use-ai"
+                    checked={planUseAI}
+                    onChange={(e) => setPlanUseAI(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="plan-use-ai" className="text-sm text-slate-600">
+                    AIで日記風に変換
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGeneratePlan}
+                  disabled={planPage.loading}
+                  className="w-full rounded-2xl bg-blue-500 py-3 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:bg-slate-200"
+                >
+                  {planPage.loading ? "生成中..." : planUseAI ? "未来日記を生成" : "画像付きで保存"}
+                </button>
+              </div>
               {(planPage.text || planPage.imageUrl) && (
                 <div className="mt-6 space-y-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
                   {planPage.imageUrl && (
@@ -467,14 +485,28 @@ export default function HomePage() {
                 placeholder="一日の振り返りや気づきを書き残しましょう。"
                 className="mt-4 h-28 w-full resize-none rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-700 outline-none focus:border-emerald-300 focus:ring"
               />
-              <button
-                type="button"
-                onClick={handleGenerateActual}
-                disabled={actualPage.loading || !actualInput.trim()}
-                className="mt-4 w-full rounded-2xl bg-emerald-500 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:bg-slate-200"
-              >
-                {actualPage.loading ? "生成中..." : "実際の日記を生成"}
-              </button>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="actual-use-ai"
+                    checked={actualUseAI}
+                    onChange={(e) => setActualUseAI(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="actual-use-ai" className="text-sm text-slate-600">
+                    AIで日記風に変換
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateActual}
+                  disabled={actualPage.loading || !actualInput.trim()}
+                  className="w-full rounded-2xl bg-emerald-500 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:bg-slate-200"
+                >
+                  {actualPage.loading ? "生成中..." : actualUseAI ? "実際の日記を生成" : "画像付きで保存"}
+                </button>
+              </div>
               {(actualPage.text || actualPage.imageUrl) && (
                 <div className="mt-6 space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
                   {actualPage.imageUrl && (
@@ -501,21 +533,21 @@ export default function HomePage() {
 
         <section className="rounded-[32px] border border-slate-200/60 bg-white/90 p-6 shadow-lg">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-800">差分要約</h2>
+            <h2 className="text-lg font-semibold text-slate-800">振り返りサマリー</h2>
             {planPage.text && actualPage.text && (
               <button
                 onClick={handleGenerateAIDiff}
                 disabled={loading}
                 className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-600 disabled:bg-slate-300"
               >
-                {loading ? "生成中..." : "AI差分要約を生成"}
+                {loading ? "生成中..." : "振り返りサマリーを作成"}
               </button>
             )}
           </div>
 
           {aiDiffSummary && (
             <div className="mb-6 rounded-2xl border border-violet-200 bg-violet-50/50 p-4">
-              <h3 className="text-sm font-semibold text-violet-700 mb-2">AI差分要約</h3>
+              <h3 className="text-sm font-semibold text-violet-700 mb-2"> 一日の振り返り</h3>
               <p className="text-sm text-slate-700 whitespace-pre-line">{aiDiffSummary}</p>
             </div>
           )}
@@ -553,7 +585,7 @@ export default function HomePage() {
             </div>
           ) : (
             <p className="mt-4 text-sm text-slate-500">
-              差分を表示するには、まず未来日記と実際の日記の両方を生成してください。
+              振り返りを表示するには、まず未来日記と実際の日記の両方を生成してください。
             </p>
           )}
         </section>

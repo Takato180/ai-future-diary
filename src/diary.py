@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
 from datetime import datetime
 from .db import (
@@ -10,6 +10,7 @@ from .db import (
     generate_diff_summary,
     get_firestore_status
 )
+from .auth import get_current_user
 
 router = APIRouter(prefix="/diary", tags=["diary"])
 
@@ -21,7 +22,8 @@ def get_status():
 @router.post("/entries/{date}", response_model=DiaryEntryResponse)
 async def save_entry(
     date: str,
-    entry: DiaryEntryCreate
+    entry: DiaryEntryCreate,
+    current_user_id: Optional[str] = Depends(get_current_user)
 ):
     """
     日記エントリを保存・更新
@@ -37,6 +39,9 @@ async def save_entry(
         # entry.dateをURLパラメータの値で上書き
         entry.date = date
 
+        # ユーザーIDを設定（認証済みの場合は現在のユーザー、未認証の場合はanonymous）
+        entry.userId = current_user_id or "anonymous"
+
         saved_entry = await save_diary_entry(entry)
         return DiaryEntryResponse(**saved_entry.model_dump())
 
@@ -48,7 +53,8 @@ async def save_entry(
 @router.get("/entries/{date}", response_model=Optional[DiaryEntryResponse])
 async def get_entry(
     date: str,
-    user_id: str = Query(default="anonymous", description="User ID")
+    current_user_id: Optional[str] = Depends(get_current_user),
+    user_id: str = Query(default=None, description="User ID (optional)")
 ):
     """
     特定の日の日記エントリを取得
@@ -61,7 +67,10 @@ async def get_entry(
         # 日付フォーマットチェック
         datetime.strptime(date, "%Y-%m-%d")
 
-        entry = await get_diary_entry(user_id, date)
+        # ユーザーIDを決定（認証済みの場合は現在のユーザー、クエリパラメータがあればそれを使用、デフォルトはanonymous）
+        effective_user_id = current_user_id or user_id or "anonymous"
+
+        entry = await get_diary_entry(effective_user_id, date)
         return entry
 
     except ValueError:
@@ -72,7 +81,8 @@ async def get_entry(
 @router.get("/entries", response_model=List[DiaryEntryResponse])
 async def get_entries_by_month(
     month: str = Query(..., description="YYYY-MM format"),
-    user_id: str = Query(default="anonymous", description="User ID")
+    current_user_id: Optional[str] = Depends(get_current_user),
+    user_id: str = Query(default=None, description="User ID (optional)")
 ):
     """
     指定月の日記エントリ一覧を取得（カレンダー表示用）
@@ -85,7 +95,10 @@ async def get_entries_by_month(
         # 月フォーマットチェック
         datetime.strptime(f"{month}-01", "%Y-%m-%d")
 
-        entries = await get_diary_entries_by_month(user_id, month)
+        # ユーザーIDを決定
+        effective_user_id = current_user_id or user_id or "anonymous"
+
+        entries = await get_diary_entries_by_month(effective_user_id, month)
         return entries
 
     except ValueError:
@@ -96,7 +109,8 @@ async def get_entries_by_month(
 @router.post("/entries/{date}/diff")
 async def create_diff_summary(
     date: str,
-    user_id: str = Query(default="anonymous", description="User ID")
+    current_user_id: Optional[str] = Depends(get_current_user),
+    user_id: str = Query(default=None, description="User ID (optional)")
 ):
     """
     予定と実際の差分要約を生成
@@ -109,8 +123,11 @@ async def create_diff_summary(
         # 日付フォーマットチェック
         datetime.strptime(date, "%Y-%m-%d")
 
+        # ユーザーIDを決定
+        effective_user_id = current_user_id or user_id or "anonymous"
+
         # エントリを取得
-        entry = await get_diary_entry(user_id, date)
+        entry = await get_diary_entry(effective_user_id, date)
         if not entry:
             raise HTTPException(status_code=404, detail="Diary entry not found")
 
@@ -122,12 +139,12 @@ async def create_diff_summary(
 
         # 差分要約を生成
         diff_text = await generate_diff_summary(
-            user_id, date, entry.planText, entry.actualText
+            effective_user_id, date, entry.planText, entry.actualText
         )
 
         return {
             "date": date,
-            "userId": user_id,
+            "userId": effective_user_id,
             "diffText": diff_text
         }
 

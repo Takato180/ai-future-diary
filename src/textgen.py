@@ -30,10 +30,12 @@ class FutureDiaryRequest(BaseModel):
     plan: str | None = None
     interests: list[str] | None = None
     style: str = "casual"
+    use_ai: bool = True  # AI使用するかどうか
 
 class TodayReflectionRequest(BaseModel):
     reflection_text: str
     style: str = "diary"
+    use_ai: bool = True  # AI使用するかどうか
 
 class TextGenerateResponse(BaseModel):
     generated_text: str
@@ -51,10 +53,18 @@ async def generate_future_diary(request: FutureDiaryRequest):
     """
     if not PROJECT_ID:
         raise HTTPException(500, "PROJECT_ID is not set")
-    
+
     try:
+        # AI使用しない場合は原文をそのまま返す
+        if not request.use_ai:
+            plan_text = request.plan or "特に予定のない一日を過ごした。"
+            return TextGenerateResponse(
+                generated_text=plan_text,
+                image_prompt="watercolor style, peaceful daily life scene, soft and warm illustration"
+            )
+
         model = _get_gemini_model()
-        
+
         # プロンプト構築
         if request.plan:
             # 予定がある場合
@@ -192,10 +202,17 @@ async def generate_today_reflection(request: TodayReflectionRequest):
     """
     if not PROJECT_ID:
         raise HTTPException(500, "PROJECT_ID is not set")
-    
+
     try:
+        # AI使用しない場合は原文をそのまま返す
+        if not request.use_ai:
+            return TextGenerateResponse(
+                generated_text=request.reflection_text,
+                image_prompt="watercolor style, peaceful daily life scene, soft and warm illustration"
+            )
+
         model = _get_gemini_model()
-        
+
         prompt = f"""
 あなたは日記の編集者です。以下のユーザーの振り返りテキストを、読みやすい日記風に整理してください。
 

@@ -24,6 +24,13 @@ except Exception as e:
     print(f"✗ Diary router failed: {e}")
     diary_router = None
 
+try:
+    from .auth import router as auth_router
+    print("✓ Auth router loaded successfully")
+except Exception as e:
+    print(f"✗ Auth router failed: {e}")
+    auth_router = None
+
 app = FastAPI(
     title="Future Diary API",
     description="AI-powered future diary with Gemini text generation and Imagen illustration",
@@ -83,6 +90,15 @@ if diary_router:
         print(f"✗ Failed to register diary router: {e}")
 else:
     print("✗ Diary router not available")
+
+if auth_router:
+    try:
+        app.include_router(auth_router)
+        print("✓ Auth router registered successfully")
+    except Exception as e:
+        print(f"✗ Failed to register auth router: {e}")
+else:
+    print("✗ Auth router not available")
 
 print("=== App startup complete ===")
 print(f"App title: {app.title}")
