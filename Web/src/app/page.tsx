@@ -278,9 +278,17 @@ function DiaryApp() {
           }
           if (entry.planInputPrompt) {
             setPlanInputHistory(entry.planInputPrompt);
+            // 生成済みのテキストがない場合は入力プロンプトを復元
+            if (!entry.planText) {
+              setPlanInput(entry.planInputPrompt);
+            }
           }
           if (entry.actualInputPrompt) {
             setActualInputHistory(entry.actualInputPrompt);
+            // 生成済みのテキストがない場合は入力プロンプトを復元
+            if (!entry.actualText) {
+              setActualInput(entry.actualInputPrompt);
+            }
           }
         } else {
           // No entry found - this is expected for new dates

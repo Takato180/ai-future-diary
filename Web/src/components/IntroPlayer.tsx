@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getIntroConfig, markIntroSeen } from '@/lib/api';
+import { getIntroConfig, markIntroSeen, generateIntroVideo, getVideoStatus, VideoStatusResponse } from '@/lib/api';
 
 export default function IntroPlayer({ token }: { token?: string }) {
   const [url, setUrl] = useState<string>('');
@@ -10,16 +10,71 @@ export default function IntroPlayer({ token }: { token?: string }) {
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [loading, setLoading] = useState(true);
   const [useAnimationFallback, setUseAnimationFallback] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string>('');
 
   useEffect(() => {
     (async () => {
       try {
+        // 認証されているユーザーには個人用動画生成を試行
+        if (token) {
+          try {
+            // まず現在の動画状態をチェック
+            const status = await getVideoStatus(token);
+
+            if (status.intro_video_generated && status.intro_video_url) {
+              // 個人用動画が既に生成済み
+              setUrl(status.intro_video_url);
+              setVersion(1); // 個人用動画は常にversion 1
+
+              const key = `intro_seen_personal_${status.generation_id}`;
+              if (!localStorage.getItem(key)) {
+                setShow(true);
+              }
+              setLoading(false);
+              return;
+            } else if (status.status === 'generating') {
+              // 現在生成中
+              setIsGenerating(true);
+              setUseAnimationFallback(true);
+              setShow(true);
+              setLoading(false);
+              return;
+            } else {
+              // 個人用動画が未生成 → 生成を開始
+              setIsGenerating(true);
+              setUseAnimationFallback(true);
+              setShow(true);
+
+              try {
+                const result = await generateIntroVideo(token);
+                setUrl(result.video_url);
+                setIsGenerating(false);
+                setUseAnimationFallback(false);
+
+                const key = `intro_seen_personal_${result.generation_id}`;
+                localStorage.setItem(key, '1');
+              } catch (genError: any) {
+                console.error('Video generation failed:', genError);
+                setGenerationError('動画生成に失敗しました。次回お試しください。');
+                setIsGenerating(false);
+                // フォールバックアニメーションを継続使用
+              }
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.error('Failed to check/generate personal video:', e);
+            // 個人用動画失敗時は共通動画にフォールバック
+          }
+        }
+
+        // 非認証ユーザーまたは個人用動画失敗時の共通動画ロジック
         const { url, version } = await getIntroConfig();
         setUrl(url);
         setVersion(version);
 
         const key = `intro_seen_v${version}`;
-        // ローカルで既に見ていたらスキップ
         if (!localStorage.getItem(key)) {
           setShow(true);
         }
@@ -35,7 +90,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [token]);
 
   const finish = async () => {
     try {
@@ -72,7 +127,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
         </button>
 
         {useAnimationFallback ? (
-          // CSS アニメーションフォールバック
+          // CSS アニメーションフォールバック (または Veo 生成中)
           <div className="w-full h-[50vh] bg-gradient-to-br from-blue-900 via-purple-900 to-blue-800 rounded-2xl shadow-2xl flex items-center justify-center relative overflow-hidden">
             {/* Background animation */}
             <div className="absolute inset-0 opacity-30">
@@ -85,7 +140,19 @@ export default function IntroPlayer({ token }: { token?: string }) {
             <div className="text-center z-10">
               <div className="mb-8">
                 <h1 className="text-4xl font-bold text-white mb-4 animate-fade-in">✨ AI未来日記 ✨</h1>
-                <p className="text-xl text-blue-200 animate-fade-in-delay">あなただけの魔法の日記帳</p>
+                <p className="text-xl text-blue-200 animate-fade-in-delay">
+                  {isGenerating ? '魔法の動画を生成中...' : 'あなただけの魔法の日記帳'}
+                </p>
+                {isGenerating && (
+                  <div className="mt-4 flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                  </div>
+                )}
+                {generationError && (
+                  <p className="mt-4 text-red-300 text-sm animate-fade-in">{generationError}</p>
+                )}
               </div>
 
               <div className="space-y-4 text-white/90">
@@ -97,8 +164,9 @@ export default function IntroPlayer({ token }: { token?: string }) {
               <button
                 onClick={finish}
                 className="mt-8 px-8 py-3 bg-white/20 hover:bg-white/30 border border-white/30 rounded-full text-white font-medium transition-all duration-300 backdrop-blur-sm animate-bounce-slow"
+                disabled={isGenerating}
               >
-                日記を始める →
+                {isGenerating ? '生成中...' : '日記を始める →'}
               </button>
             </div>
 

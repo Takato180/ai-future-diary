@@ -394,3 +394,39 @@ export async function markIntroSeen(opted_out: boolean, token?: string) {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+// Video Generation API
+export interface VideoGenerateResponse {
+  video_url: string;
+  prompt_used: string;
+  generation_id: string;
+}
+
+export interface VideoStatusResponse {
+  intro_video_generated: boolean;
+  intro_video_url: string | null;
+  last_generated: string | null;
+  status: string | null;
+  generation_id?: string;
+}
+
+export async function generateIntroVideo(token: string): Promise<VideoGenerateResponse> {
+  const r = await fetch(`${API}/video/generate-intro`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getVideoStatus(token: string): Promise<VideoStatusResponse> {
+  const r = await fetch(`${API}/video/status`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}

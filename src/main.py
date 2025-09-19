@@ -38,6 +38,13 @@ except Exception as e:
     print(f"✗ Intro router failed: {e}")
     intro_router = None
 
+try:
+    from .videogen import router as video_router
+    print("✓ Video router loaded successfully")
+except Exception as e:
+    print(f"✗ Video router failed: {e}")
+    video_router = None
+
 app = FastAPI(
     title="Future Diary API",
     description="AI-powered future diary with Gemini text generation and Imagen illustration",
@@ -115,6 +122,15 @@ if intro_router:
         print(f"✗ Failed to register intro router: {e}")
 else:
     print("✗ Intro router not available")
+
+if video_router:
+    try:
+        app.include_router(video_router)
+        print("✓ Video router registered successfully")
+    except Exception as e:
+        print(f"✗ Failed to register video router: {e}")
+else:
+    print("✗ Video router not available")
 
 print("=== App startup complete ===")
 print(f"App title: {app.title}")
