@@ -9,11 +9,13 @@ from .db import (
     UserCreate,
     UserLogin,
     UserResponse,
+    UserProfileUpdate,
     create_user,
     authenticate_user,
     get_user,
     generate_user_cover,
-    update_user_cover
+    update_user_cover,
+    update_user_profile
 )
 from .imagegen import generate_image
 
@@ -167,3 +169,29 @@ async def regenerate_cover(user_id: str = Depends(get_current_user_required)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail="表紙画像の再生成に失敗しました")
+
+@router.put("/profile")
+async def update_profile(
+    profile_data: UserProfileUpdate,
+    user_id: str = Depends(get_current_user_required)
+):
+    """ユーザープロフィールを更新"""
+    try:
+        success = await update_user_profile(user_id, profile_data)
+        if not success:
+            raise HTTPException(status_code=500, detail="プロフィールの更新に失敗しました")
+
+        # 更新後のユーザー情報を取得
+        user = await get_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+
+        return {
+            "message": "プロフィールを更新しました",
+            "user": user
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="プロフィールの更新に失敗しました")

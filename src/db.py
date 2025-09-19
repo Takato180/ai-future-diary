@@ -29,6 +29,17 @@ class User(BaseModel):
     userName: str
     passwordHash: str  # あいことばのハッシュ
     coverImageUrl: Optional[str] = None
+    # プロフィール情報
+    birth_date: Optional[str] = None  # YYYY-MM-DD形式
+    gender: Optional[str] = None  # 男性/女性/その他/未設定
+    occupation: Optional[str] = None  # 学生/会社員/主婦/フリーランス/退職/その他
+    hobbies: Optional[str] = None  # 趣味・特技
+    favorite_places: Optional[str] = None  # 好きな場所・よく行く場所
+    family_structure: Optional[str] = None  # 一人暮らし/家族と同居/パートナーと二人暮らし/その他
+    living_area: Optional[str] = None  # 都市部/郊外/田舎/海近く/山近く
+    favorite_colors: List[str] = Field(default_factory=list)  # 好きな色
+    personality_type: Optional[str] = None  # アクティブ/インドア派/両方
+    favorite_season: Optional[str] = None  # 春/夏/秋/冬
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -44,7 +55,30 @@ class UserResponse(BaseModel):
     userId: str
     userName: str
     coverImageUrl: Optional[str] = None
+    # プロフィール情報
+    birth_date: Optional[str] = None
+    gender: Optional[str] = None
+    occupation: Optional[str] = None
+    hobbies: Optional[str] = None
+    favorite_places: Optional[str] = None
+    family_structure: Optional[str] = None
+    living_area: Optional[str] = None
+    favorite_colors: List[str] = Field(default_factory=list)
+    personality_type: Optional[str] = None
+    favorite_season: Optional[str] = None
     createdAt: datetime
+
+class UserProfileUpdate(BaseModel):
+    birth_date: Optional[str] = None
+    gender: Optional[str] = None
+    occupation: Optional[str] = None
+    hobbies: Optional[str] = None
+    favorite_places: Optional[str] = None
+    family_structure: Optional[str] = None
+    living_area: Optional[str] = None
+    favorite_colors: List[str] = Field(default_factory=list)
+    personality_type: Optional[str] = None
+    favorite_season: Optional[str] = None
 
 class DiaryEntry(BaseModel):
     userId: str
@@ -320,6 +354,28 @@ async def update_user_cover(user_id: str, cover_image_url: str) -> bool:
         return True
     except Exception as e:
         print(f"Failed to update user cover: {e}")
+        return False
+
+async def update_user_profile(user_id: str, profile_data: UserProfileUpdate) -> bool:
+    """ユーザーのプロフィール情報を更新"""
+    if not db:
+        raise Exception("Firestore is not available")
+
+    try:
+        # None以外の値のみ更新データに含める
+        update_data = {}
+        for field, value in profile_data.model_dump(exclude_unset=True).items():
+            if value is not None:
+                update_data[field] = value
+
+        # 更新日時を追加
+        update_data["updatedAt"] = datetime.now(timezone.utc)
+
+        if update_data:
+            db.collection("users").document(user_id).update(update_data)
+        return True
+    except Exception as e:
+        print(f"Failed to update user profile: {e}")
         return False
 
 async def generate_user_cover(user_name: str) -> str:

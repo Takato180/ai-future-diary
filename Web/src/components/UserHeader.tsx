@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { regenerateCover } from '@/lib/api';
+import UserProfileModal from './UserProfileModal';
 
 export default function UserHeader() {
   const { user, token, logout } = useAuth();
@@ -11,6 +12,7 @@ export default function UserHeader() {
   const [regeneratingCover, setRegeneratingCover] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState(user?.coverImageUrl || '');
   const [showCoverModal, setShowCoverModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // ESCキーで表紙モーダルを閉じる
   useEffect(() => {
@@ -121,6 +123,19 @@ export default function UserHeader() {
               </button>
 
               <button
+                onClick={() => {
+                  setShowProfileModal(true);
+                  setShowDropdown(false);
+                }}
+                className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                プロフィール編集
+              </button>
+
+              <button
                 onClick={handleLogout}
                 className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
               >
@@ -144,12 +159,12 @@ export default function UserHeader() {
 
       {/* 表紙拡大モーダル */}
       {showCoverModal && coverImageUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="relative max-w-2xl max-h-[80vh] w-full h-full flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="relative w-full h-full max-w-4xl max-h-[90vh] flex items-center justify-center">
             {/* 閉じるボタン */}
             <button
               onClick={() => setShowCoverModal(false)}
-              className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+              className="absolute top-4 right-4 z-20 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-colors"
             >
               <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -161,14 +176,14 @@ export default function UserHeader() {
               <Image
                 src={coverImageUrl}
                 alt={`${user.userName}さんの日記帳表紙（拡大表示）`}
-                width={800}
-                height={600}
-                className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+                fill
+                className="object-contain rounded-2xl shadow-2xl"
+                sizes="(max-width: 1024px) 90vw, 80vw"
               />
             </div>
 
             {/* 画像情報 */}
-            <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
+            <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg z-10">
               <p className="text-sm font-medium text-gray-800">{user.userName}さんの日記帳表紙</p>
               <p className="text-xs text-gray-600">クリックまたはESCキーで閉じる</p>
             </div>
@@ -181,6 +196,12 @@ export default function UserHeader() {
           />
         </div>
       )}
+
+      {/* プロフィール編集モーダル */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </div>
   );
 }

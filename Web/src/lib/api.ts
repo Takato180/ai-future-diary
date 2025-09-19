@@ -17,12 +17,14 @@ export interface FutureDiaryRequest {
   interests?: string[];
   style?: string;
   use_ai?: boolean;
+  user_id?: string;
 }
 
 export interface TodayReflectionRequest {
   reflection_text: string;
   style?: string;
   use_ai?: boolean;
+  user_id?: string;
 }
 
 export interface TextGenerateResponse {
@@ -210,7 +212,31 @@ export interface UserResponse {
   userId: string;
   userName: string;
   coverImageUrl?: string;
+  // プロフィール情報
+  birth_date?: string;
+  gender?: string;
+  occupation?: string;
+  hobbies?: string;
+  favorite_places?: string;
+  family_structure?: string;
+  living_area?: string;
+  favorite_colors?: string[];
+  personality_type?: string;
+  favorite_season?: string;
   createdAt: string;
+}
+
+export interface UserProfileUpdate {
+  birth_date?: string;
+  gender?: string;
+  occupation?: string;
+  hobbies?: string;
+  favorite_places?: string;
+  family_structure?: string;
+  living_area?: string;
+  favorite_colors?: string[];
+  personality_type?: string;
+  favorite_season?: string;
 }
 
 export interface AuthResponse {
@@ -255,6 +281,19 @@ export async function regenerateCover(token: string): Promise<{ coverImageUrl: s
     headers: {
       'Authorization': `Bearer ${token}`
     },
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function updateUserProfile(profileData: UserProfileUpdate, token: string): Promise<{ message: string; user: UserResponse }> {
+  const r = await fetch(`${API}/auth/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(profileData),
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json();

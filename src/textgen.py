@@ -1,6 +1,7 @@
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from .db import get_user
 
 router = APIRouter(prefix="/text", tags=["text"])
 
@@ -31,11 +32,13 @@ class FutureDiaryRequest(BaseModel):
     interests: list[str] | None = None
     style: str = "casual"
     use_ai: bool = True  # AI使用するかどうか
+    user_id: str | None = None  # プロフィール情報取得用
 
 class TodayReflectionRequest(BaseModel):
     reflection_text: str
     style: str = "diary"
     use_ai: bool = True  # AI使用するかどうか
+    user_id: str | None = None  # プロフィール情報取得用
 
 class TextGenerateResponse(BaseModel):
     generated_text: str
@@ -45,6 +48,62 @@ def _get_gemini_model():
     if not VERTEX_AVAILABLE:
         raise HTTPException(500, "Vertex AI is not available")
     return GenerativeModel(GEMINI_MODEL)
+
+async def _get_user_profile_context(user_id: str | None) -> str:
+    """ユーザープロフィール情報からコンテキスト文字列を生成"""
+    if not user_id:
+        return ""
+
+    try:
+        user = await get_user(user_id)
+        if not user:
+            return ""
+
+        context_parts = []
+
+        # 年齢計算
+        if user.birth_date:
+            from datetime import datetime
+            try:
+                birth_date = datetime.strptime(user.birth_date, "%Y-%m-%d")
+                age = datetime.now().year - birth_date.year
+                context_parts.append(f"年齢: {age}歳")
+            except:
+                pass
+
+        # 基本情報
+        if user.gender:
+            context_parts.append(f"性別: {user.gender}")
+        if user.occupation:
+            context_parts.append(f"職種: {user.occupation}")
+
+        # ライフスタイル
+        if user.hobbies:
+            context_parts.append(f"趣味: {user.hobbies}")
+        if user.favorite_places:
+            context_parts.append(f"好きな場所: {user.favorite_places}")
+        if user.family_structure:
+            context_parts.append(f"家族構成: {user.family_structure}")
+        if user.living_area:
+            context_parts.append(f"住環境: {user.living_area}")
+
+        # 好み
+        if user.favorite_colors:
+            colors = "、".join(user.favorite_colors)
+            context_parts.append(f"好きな色: {colors}")
+        if user.personality_type:
+            context_parts.append(f"性格: {user.personality_type}")
+        if user.favorite_season:
+            context_parts.append(f"好きな季節: {user.favorite_season}")
+
+        if context_parts:
+            return f"ユーザー情報: {user.userName}さん（{', '.join(context_parts)}）"
+        else:
+            return f"ユーザー: {user.userName}さん"
+
+    except Exception as e:
+        print(f"Profile context generation failed: {e}")
+        return ""
 
 @router.post("/future-diary", response_model=TextGenerateResponse)
 async def generate_future_diary(request: FutureDiaryRequest):
@@ -65,11 +124,16 @@ async def generate_future_diary(request: FutureDiaryRequest):
 
         model = _get_gemini_model()
 
+        # プロフィール情報を取得
+        profile_context = await _get_user_profile_context(request.user_id)
+
         # プロンプト構築
         if request.plan:
             # 予定がある場合
             prompt = f"""
 あなたは創作的な日記作家です。以下の明日の予定をもとに、楽しい未来日記を書いてください。
+
+{profile_context}
 
 明日の予定: {request.plan}
 
@@ -78,9 +142,11 @@ async def generate_future_diary(request: FutureDiaryRequest):
 2. 150文字程度
 3. 「〜だった」「〜した」のような過去形で書く（未来日記なので）
 4. 絵日記らしい親しみやすい文体
+5. ユーザーの個性や好み、ライフスタイルを反映させて
+6. 年齢や職種、趣味などを考慮した自然な表現にする
 
-また、この日記内容に合う挿絵のプロンプトも生成してください。
-プロンプトは英語で、水彩画風のやわらかい雰囲気で。
+また、この日記内容とユーザーの特徴に合う挿絵のプロンプトも生成してください。
+プロンプトは英語で、水彩画風のやわらかい雰囲気で、ユーザーの好きな色や性格も考慮して。
 
 以下の形式で返答してください:
 ```
@@ -92,19 +158,22 @@ async def generate_future_diary(request: FutureDiaryRequest):
             # 予定がない場合、趣味から提案
             interests_text = ", ".join(request.interests) if request.interests else "リラックス、読書、散歩"
             prompt = f"""
-あなたは創作的な日記作家です。明日の予定が特にない人に向けて、以下の興味・趣味をもとに楽しい一日の提案と未来日記を書いてください。
+あなたは創作的な日記作家です。明日の予定が特にない人に向けて、以下の興味・趣味とプロフィール情報をもとに楽しい一日の提案と未来日記を書いてください。
+
+{profile_context}
 
 興味・趣味: {interests_text}
 
 要件:
-1. まず明日のおすすめ活動を1-2個提案
+1. まず明日のおすすめ活動を1-2個提案（ユーザーの年齢、職種、性格、住環境を考慮）
 2. その活動をした後の日記風文章を作成
 3. 150文字程度
 4. 「〜だった」「〜した」のような過去形で書く（未来日記なので）
 5. 絵日記らしい親しみやすい文体
+6. ユーザーの個性や好み、ライフスタイルを反映させて
 
-また、この日記内容に合う挿絵のプロンプトも生成してください。
-プロンプトは英語で、水彩画風のやわらかい雰囲気で。
+また、この日記内容とユーザーの特徴に合う挿絵のプロンプトも生成してください。
+プロンプトは英語で、水彩画風のやわらかい雰囲気で、ユーザーの好きな色や性格も考慮して。
 
 以下の形式で返答してください:
 ```
@@ -213,8 +282,13 @@ async def generate_today_reflection(request: TodayReflectionRequest):
 
         model = _get_gemini_model()
 
+        # プロフィール情報を取得
+        profile_context = await _get_user_profile_context(request.user_id)
+
         prompt = f"""
 あなたは日記の編集者です。以下のユーザーの振り返りテキストを、読みやすい日記風に整理してください。
+
+{profile_context}
 
 入力テキスト: {request.reflection_text}
 
@@ -224,9 +298,11 @@ async def generate_today_reflection(request: TodayReflectionRequest):
 3. 150文字程度に簡潔にまとめる
 4. 感情や体験を大切に表現
 5. 過去形で統一
+6. ユーザーの個性や好み、ライフスタイルを反映させて
+7. 年齢や職種、趣味などを考慮した自然な表現にする
 
-また、この日記内容に合う挿絵のプロンプトも生成してください。
-プロンプトは英語で、水彩画風のやわらかい雰囲気で。
+また、この日記内容とユーザーの特徴に合う挿絵のプロンプトも生成してください。
+プロンプトは英語で、水彩画風のやわらかい雰囲気で、ユーザーの好きな色や性格も考慮して。
 
 以下の形式で返答してください:
 ```
