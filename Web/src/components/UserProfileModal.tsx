@@ -57,6 +57,27 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
     }
   }, [user]);
 
+  // Modal opened - reload form data
+  useEffect(() => {
+    if (isOpen && user) {
+      console.log('[DEBUG] Modal opened, reloading user data:', user);
+      setFormData({
+        birth_date: user.birth_date || '',
+        gender: user.gender || '',
+        occupation: user.occupation || '',
+        hobbies: user.hobbies || '',
+        favorite_places: user.favorite_places || '',
+        family_structure: user.family_structure || '',
+        living_area: user.living_area || '',
+        prefecture: user.prefecture || '',
+        city: user.city || '',
+        favorite_colors: user.favorite_colors || [],
+        personality_type: user.personality_type || '',
+        favorite_season: user.favorite_season || '',
+      });
+    }
+  }, [isOpen, user]);
+
   // ESCキーでモーダルを閉じる & スクロール防止
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

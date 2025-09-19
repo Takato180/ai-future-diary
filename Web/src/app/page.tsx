@@ -152,9 +152,16 @@ function DiaryApp() {
         const userTagKey = `taggedPlans_${user.userId}`;
         const userSavedTagsKey = `savedTags_${user.userId}`;
 
+        console.log('[DEBUG] Loading user-specific data for:', user.userId);
+
         try {
           const savedTaggedPlans = localStorage.getItem(userTagKey);
           const savedUserTags = localStorage.getItem(userSavedTagsKey);
+
+          console.log('[DEBUG] Found localStorage data:', {
+            taggedPlans: savedTaggedPlans ? JSON.parse(savedTaggedPlans) : null,
+            savedTags: savedUserTags ? JSON.parse(savedUserTags) : null
+          });
 
           if (savedTaggedPlans) {
             setTaggedPlans(JSON.parse(savedTaggedPlans));
@@ -173,6 +180,7 @@ function DiaryApp() {
           setSavedTags([]);
         }
       } else {
+        console.log('[DEBUG] No user logged in, clearing user-specific data');
         // Not logged in - clear user-specific data
         setTaggedPlans({});
         setSavedTags([]);
@@ -220,6 +228,14 @@ function DiaryApp() {
           // No entry found - this is expected for new dates
           setSavedEntry(null);
           setAiDiffSummary("");
+          // Clear uploaded images for new dates
+          setPlanImageUpload(null);
+          setActualImageUpload(null);
+          setPlanImagePreview(null);
+          setActualImagePreview(null);
+          // Clear input histories for new dates
+          setPlanInputHistory("");
+          setActualInputHistory("");
           // Don't clear tags here - keep them for new entries
         }
       } catch (error) {
@@ -227,6 +243,12 @@ function DiaryApp() {
       }
     }
     loadEntry();
+
+    // Clear uploaded images when date changes (separate effect for reliability)
+    setPlanImageUpload(null);
+    setActualImageUpload(null);
+    setPlanImagePreview(null);
+    setActualImagePreview(null);
   }, [selectedDateString, user?.userId, isLoading]); // Also trigger when user changes
 
   // Load monthly entries for calendar (only when calendar is shown and user is logged in)
@@ -453,6 +475,18 @@ function DiaryApp() {
     setPlanPage({ text: "", imageUrl: null, loading: false });
     setActualPage({ text: "", imageUrl: null, loading: false });
     setAiDiffSummary("");
+    // Clear uploaded images when changing dates
+    setPlanImageUpload(null);
+    setActualImageUpload(null);
+    setPlanImagePreview(null);
+    setActualImagePreview(null);
+    // Clear tags and input histories
+    setPlanTags([]);
+    setActualTags([]);
+    setPlanInputHistory("");
+    setActualInputHistory("");
+    setAutoSuggestions([]);
+    setShowAutoSuggestions(false);
   }
 
   function handleCalendarDateSelect(date: Date) {

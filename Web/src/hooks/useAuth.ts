@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ユーザー情報を取得
       getCurrentUser(storedToken)
         .then(userData => {
+          console.log('[DEBUG] User data loaded from token:', userData);
           setUser(userData);
         })
         .catch(error => {
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleAuthResponse = (response: AuthResponse) => {
+    console.log('[DEBUG] Auth response user data:', response.user);
     setUser(response.user);
     setToken(response.access_token);
     localStorage.setItem('auth_token', response.access_token);
@@ -93,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const userData = await getCurrentUser(token);
+      console.log('[DEBUG] Refreshed user data:', userData);
       setUser(userData);
     } catch (error) {
       console.error('Failed to refresh user info:', error);
