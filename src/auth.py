@@ -147,8 +147,8 @@ async def regenerate_cover(user_id: str = Depends(get_current_user_required)):
         if not user:
             raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
 
-        # 表紙画像を再生成
-        cover_prompt = await generate_user_cover(user.userName)
+        # 表紙画像を再生成（プロフィール情報を反映）
+        cover_prompt = await generate_user_cover(user.userName, user)
 
         from .imagegen import ImageGenerateRequest
         image_request = ImageGenerateRequest(

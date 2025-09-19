@@ -419,21 +419,47 @@ async def update_user_profile(user_id: str, profile_data: UserProfileUpdate) -> 
         print(f"Failed to update user profile: {e}")
         return False
 
-async def generate_user_cover(user_name: str) -> str:
-    """ユーザーの表紙画像を生成"""
+async def generate_user_cover(user_name: str, profile_data: Optional[UserResponse] = None) -> str:
+    """ユーザーの表紙画像を生成（プロフィール情報を反映）"""
     from src.textgen import _get_gemini_model
 
     try:
         model = _get_gemini_model()
 
+        # プロフィール情報を活用したプロンプト構築
+        profile_elements = []
+
+        if profile_data:
+            if profile_data.favorite_colors:
+                colors_text = "、".join(profile_data.favorite_colors)
+                profile_elements.append(f"好きな色: {colors_text}")
+
+            if profile_data.favorite_season:
+                profile_elements.append(f"好きな季節: {profile_data.favorite_season}")
+
+            if profile_data.hobbies:
+                profile_elements.append(f"趣味: {profile_data.hobbies}")
+
+            if profile_data.living_area:
+                profile_elements.append(f"住環境: {profile_data.living_area}")
+
+            if profile_data.personality_type:
+                profile_elements.append(f"性格: {profile_data.personality_type}")
+
+        profile_info = "\n".join([f"- {element}" for element in profile_elements]) if profile_elements else ""
+
         prompt = f"""
 {user_name}さんの日記帳の表紙画像を生成するプロンプトを作成してください。
+
+ユーザー情報:
+{profile_info if profile_info else "- 基本的な情報のみ"}
 
 要件:
 1. 日記帳らしい温かみのあるデザイン
 2. {user_name}という名前を活かした個性的な要素
 3. 手作り感のある親しみやすい雰囲気
 4. 水彩画風で優しい色合い
+5. プロフィール情報を活かした個性的な要素（色、季節感、趣味のモチーフなど）
 
 英語で画像生成プロンプトのみを返答してください:
 """
@@ -443,7 +469,19 @@ async def generate_user_cover(user_name: str) -> str:
 
         if not image_prompt:
             # フォールバック
-            image_prompt = f"watercolor style, handmade diary cover for {user_name}, warm and friendly design, soft pastel colors, journal notebook"
+            base_prompt = f"watercolor style, handmade diary cover for {user_name}, warm and friendly design, soft pastel colors, journal notebook"
+
+            # プロフィール要素をフォールバックに追加
+            if profile_data and profile_data.favorite_colors:
+                colors = ", ".join([color.lower() for color in profile_data.favorite_colors[:2]])  # 最大2色
+                base_prompt += f", {colors} colors"
+
+            if profile_data and profile_data.favorite_season:
+                season_map = {"春": "spring", "夏": "summer", "秋": "autumn", "冬": "winter"}
+                season = season_map.get(profile_data.favorite_season, "spring")
+                base_prompt += f", {season} theme"
+
+            image_prompt = base_prompt
 
         return image_prompt
 
