@@ -377,8 +377,13 @@ async def update_user_profile(user_id: str, profile_data: UserProfileUpdate) -> 
         # 更新日時を追加
         update_data["updatedAt"] = datetime.now(timezone.utc)
 
+        print(f"[DEBUG] Updating user profile for {user_id}: {update_data}")
+
         if update_data:
             db.collection("users").document(user_id).update(update_data)
+            print(f"[DEBUG] Successfully updated user profile for {user_id}")
+        else:
+            print(f"[DEBUG] No data to update for user {user_id}")
         return True
     except Exception as e:
         print(f"Failed to update user profile: {e}")

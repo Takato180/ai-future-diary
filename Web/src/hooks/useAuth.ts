@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (credentials: UserLogin) => Promise<void>;
   register: (userData: UserCreate) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,6 +82,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('auth_token');
   };
 
+  const refreshUser = async () => {
+    if (!token) return;
+
+    try {
+      const userData = await getCurrentUser(token);
+      setUser(userData);
+    } catch (error) {
+      console.error('Failed to refresh user info:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
@@ -88,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     logout,
+    refreshUser,
   };
 
   return React.createElement(

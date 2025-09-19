@@ -12,7 +12,7 @@ interface UserProfileModalProps {
 }
 
 export default function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
-  const { user, token } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState<UserProfileUpdate>({
@@ -79,6 +79,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
 
     try {
       await updateUserProfile(formData, token);
+      await refreshUser(); // ユーザー情報を最新に更新
       alert('プロフィールを更新しました');
       onClose();
     } catch (error) {
