@@ -13,6 +13,9 @@ import {
   generateDiffSummary,
   DiaryEntry,
 } from "@/lib/api";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import AuthModal from "@/components/AuthModal";
+import UserHeader from "@/components/UserHeader";
 
 type DiaryPageState = {
   text: string;
@@ -64,7 +67,17 @@ function buildDiffSummary(planText: string, actualText: string): DiffSummary | n
   };
 }
 
-export default function HomePage() {
+function DiaryApp() {
+  const { user, isLoading } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // ログインが必要な場合はモーダルを表示
+  useEffect(() => {
+    if (!isLoading && !user) {
+      setShowAuthModal(true);
+    }
+  }, [isLoading, user]);
+
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [planInput, setPlanInput] = useState("");
   const [interestList, setInterestList] = useState<string[]>([]);
@@ -295,8 +308,45 @@ export default function HomePage() {
     return monthlyEntries.find(entry => entry.date === dateStr);
   }
 
+  // ローディング中
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f5ede1] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 未認証の場合
+  if (!user) {
+    return (
+      <>
+        <div className="min-h-screen bg-[#f5ede1] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.7),transparent_60%)] flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-slate-800 mb-4">AI未来日記</h1>
+            <p className="text-slate-600 mb-8">あなただけの日記帳を作りましょう</p>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="bg-blue-500 text-white px-8 py-3 rounded-2xl font-semibold hover:bg-blue-600 transition"
+            >
+              はじめる
+            </button>
+          </div>
+        </div>
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f5ede1] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.7),transparent_60%)] pb-16">
+      <UserHeader />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12">
         <header className="text-center lg:text-left">
           <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Future Diary</p>
@@ -594,6 +644,19 @@ export default function HomePage() {
           API base: {API}
         </footer>
       </div>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <AuthProvider>
+      <DiaryApp />
+    </AuthProvider>
   );
 }

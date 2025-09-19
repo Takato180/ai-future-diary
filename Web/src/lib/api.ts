@@ -149,3 +149,68 @@ export async function getDiaryStatus() {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+// Auth API
+export interface UserCreate {
+  userName: string;
+  password: string;
+}
+
+export interface UserLogin {
+  userName: string;
+  password: string;
+}
+
+export interface UserResponse {
+  userId: string;
+  userName: string;
+  coverImageUrl?: string;
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  user: UserResponse;
+  access_token: string;
+  token_type: string;
+}
+
+export async function registerUser(user: UserCreate): Promise<AuthResponse> {
+  const r = await fetch(`${API}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(user),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function loginUser(user: UserLogin): Promise<AuthResponse> {
+  const r = await fetch(`${API}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(user),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getCurrentUser(token: string): Promise<UserResponse> {
+  const r = await fetch(`${API}/auth/me`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function regenerateCover(token: string): Promise<{ coverImageUrl: string; message: string }> {
+  const r = await fetch(`${API}/auth/regenerate-cover`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
