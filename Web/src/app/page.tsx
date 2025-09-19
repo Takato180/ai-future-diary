@@ -19,6 +19,7 @@ import {
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
 import UserHeader from "@/components/UserHeader";
+import IntroPlayer from "@/components/IntroPlayer";
 
 type DiaryPageState = {
   text: string;
@@ -118,36 +119,49 @@ function DiaryApp() {
 
   const selectedDateString = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-  // Clear temporary data when user changes and reload user data
+  // Store previous user ID to detect actual user changes
+  const [previousUserId, setPreviousUserId] = useState<string | null>(null);
+
+  // Load user data and clear only when necessary
   useEffect(() => {
     if (!isLoading) {
-      // Clear temporary state (non-persistent data)
-      setPlanInput("");
-      setInterestList([]);
-      setActualInput("");
+      const currentUserId = user?.userId || null;
+      const isUserChange = previousUserId !== currentUserId;
+
+      // Only clear data if user actually changed (not just page reload)
+      if (isUserChange) {
+        console.log('[DEBUG] User changed from', previousUserId, 'to', currentUserId);
+
+        // Clear temporary state
+        setPlanInput("");
+        setInterestList([]);
+        setActualInput("");
+        setShowTagLibrary(false);
+        setAutoSuggestions([]);
+        setShowAutoSuggestions(false);
+        setShowCalendar(false);
+
+        // Clear persistent data that should be reloaded
+        setPlanPage({ text: "", imageUrl: null, loading: false });
+        setActualPage({ text: "", imageUrl: null, loading: false });
+        setAiDiffSummary("");
+        setPlanTags([]);
+        setActualTags([]);
+        setSavedEntry(null);
+        setMonthlyEntries([]);
+
+        // Clear year cache when switching users
+        setYearlyEntriesCache({});
+      }
+
+      // Always clear uploaded images (they are date-specific and session-specific)
       setPlanImageUpload(null);
       setActualImageUpload(null);
       setPlanImagePreview(null);
       setActualImagePreview(null);
-      setShowTagLibrary(false);
-      setAutoSuggestions([]);
-      setShowAutoSuggestions(false);
-      setShowCalendar(false);
 
-      // Clear persistent data that should be reloaded
-      setPlanPage({ text: "", imageUrl: null, loading: false });
-      setActualPage({ text: "", imageUrl: null, loading: false });
-      setAiDiffSummary("");
-      setPlanTags([]);
-      setActualTags([]);
-      setSavedEntry(null);
-      setMonthlyEntries([]);
-
-      // Always clear uploaded images when user changes (they are date-specific)
-      setPlanImageUpload(null);
-      setActualImageUpload(null);
-      setPlanImagePreview(null);
-      setActualImagePreview(null);
+      // Update previous user ID
+      setPreviousUserId(currentUserId);
 
       // Load year data cache when user logs in
       if (user?.userId) {
@@ -226,7 +240,20 @@ function DiaryApp() {
       if (isLoading || !user) return;
 
       try {
-        const entry = await getDiaryEntry(selectedDateString);
+        // Try to get entry from year cache first
+        const currentYear = new Date(selectedDateString).getFullYear().toString();
+        const cachedYearData = yearlyEntriesCache[currentYear];
+        let entry: DiaryEntry | null = null;
+
+        if (cachedYearData) {
+          // Find entry in cache
+          entry = cachedYearData.find(e => e.date === selectedDateString) || null;
+          console.log('[DEBUG] Entry loaded from cache for:', selectedDateString);
+        } else {
+          // Fallback to API call if no cache available
+          console.log('[DEBUG] Loading entry from API for:', selectedDateString);
+          entry = await getDiaryEntry(selectedDateString);
+        }
         if (entry) {
           setSavedEntry(entry);
           if (entry.planText) {
@@ -682,8 +709,16 @@ function DiaryApp() {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   }
 
+  // タイムゾーン問題を回避するローカル日付キー生成
+  function localDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   function formatCalendarDate(date: Date) {
-    return date.toISOString().split('T')[0];
+    return localDateKey(date);
   }
 
   function getEntryForDate(date: Date) {
@@ -729,6 +764,7 @@ function DiaryApp() {
 
   return (
     <div className="min-h-screen bg-[#f5ede1] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.7),transparent_60%)] pb-16">
+      <IntroPlayer token={token} />
       <UserHeader />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12">
         <header className="text-center lg:text-left">

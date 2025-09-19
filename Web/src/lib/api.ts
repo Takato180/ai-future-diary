@@ -369,3 +369,28 @@ export async function getActivitySuggestions(request: ActivitySuggestionRequest)
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+// Intro Video API
+export async function getIntroConfig() {
+  const r = await fetch(`${API}/intro/config`, { cache: 'no-store' });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json() as Promise<{ url: string; version: number }>;
+}
+
+export async function markIntroSeen(opted_out: boolean, token?: string) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const r = await fetch(`${API}/intro/seen`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ opted_out })
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
