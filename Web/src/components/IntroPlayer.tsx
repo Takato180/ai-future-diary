@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getIntroConfig, markIntroSeen, generateIntroVideo, getVideoStatus, VideoStatusResponse } from '@/lib/api';
+import { getIntroConfig, markIntroSeen, generateIntroVideo, getVideoStatus } from '@/lib/api';
 
 export default function IntroPlayer({ token }: { token?: string }) {
   const [url, setUrl] = useState<string>('');
@@ -54,7 +54,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
 
                 const key = `intro_seen_personal_${result.generation_id}`;
                 localStorage.setItem(key, '1');
-              } catch (genError: any) {
+              } catch (genError) {
                 console.error('Video generation failed:', genError);
                 setGenerationError('動画生成に失敗しました。次回お試しください。');
                 setIsGenerating(false);
