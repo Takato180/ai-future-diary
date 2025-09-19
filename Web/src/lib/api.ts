@@ -195,6 +195,24 @@ export async function getDiaryEntriesByMonth(month: string, userId: string = 'an
   return r.json();
 }
 
+export async function getDiaryEntriesByYear(year: number, userId: string = 'anonymous'): Promise<DiaryEntry[]> {
+  const token = localStorage.getItem('auth_token');
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // 認証済みの場合はuser_idクエリパラメータを送らない（JWTから自動取得）
+  const url = token ? `${API}/diary/entries/year/${year}` : `${API}/diary/entries/year/${year}?user_id=${userId}`;
+
+  const r = await fetch(url, {
+    headers,
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
 export async function generateDiffSummary(date: string, userId: string = 'anonymous'): Promise<{ date: string; userId: string; diffText: string }> {
   const token = localStorage.getItem('auth_token');
   const headers: Record<string, string> = {

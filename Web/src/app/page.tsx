@@ -10,6 +10,7 @@ import {
   saveDiaryEntry,
   getDiaryEntry,
   getDiaryEntriesByMonth,
+  getDiaryEntriesByYear,
   generateDiffSummary,
   getActivitySuggestions,
   uploadImageFile,
@@ -92,9 +93,12 @@ function DiaryApp() {
   const [aiDiffSummary, setAiDiffSummary] = useState<string>("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [monthlyEntries, setMonthlyEntries] = useState<DiaryEntry[]>([]);
+  const [yearlyEntriesCache, setYearlyEntriesCache] = useState<{[year: string]: DiaryEntry[]}>({});
   const [loading, setLoading] = useState(false);
   const [planUseAI, setPlanUseAI] = useState(true);
   const [actualUseAI, setActualUseAI] = useState(true);
+  const [planGenerateImage, setPlanGenerateImage] = useState(true);
+  const [actualGenerateImage, setActualGenerateImage] = useState(true);
   const [autoSuggestions, setAutoSuggestions] = useState<string[]>([]);
   const [showAutoSuggestions, setShowAutoSuggestions] = useState(false);
   const [planImageUpload, setPlanImageUpload] = useState<File | null>(null);
@@ -146,6 +150,35 @@ function DiaryApp() {
       setActualImageUpload(null);
       setPlanImagePreview(null);
       setActualImagePreview(null);
+
+      // Load year data cache when user logs in
+      if (user?.userId) {
+        const currentYear = new Date().getFullYear();
+        const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
+
+        console.log('[DEBUG] Loading year cache for:', user.userId);
+
+        try {
+          const cachedData = localStorage.getItem(cacheKey);
+          if (cachedData) {
+            const yearEntries = JSON.parse(cachedData);
+            setYearlyEntriesCache({ [currentYear.toString()]: yearEntries });
+            console.log('[DEBUG] Loaded cached year data:', yearEntries.length, 'entries');
+          } else {
+            // Load current year data from API
+            console.log('[DEBUG] Loading year data from API...');
+            getDiaryEntriesByYear(currentYear).then(yearEntries => {
+              setYearlyEntriesCache({ [currentYear.toString()]: yearEntries });
+              localStorage.setItem(cacheKey, JSON.stringify(yearEntries));
+              console.log('[DEBUG] Year data loaded and cached:', yearEntries.length, 'entries');
+            }).catch(error => {
+              console.error("Failed to load year data:", error);
+            });
+          }
+        } catch (error) {
+          console.error("Failed to load cached year data:", error);
+        }
+      }
 
       // Load user-specific persistent data
       if (user?.userId) {
@@ -251,21 +284,36 @@ function DiaryApp() {
     setActualImagePreview(null);
   }, [selectedDateString, user?.userId, isLoading]); // Also trigger when user changes
 
-  // Load monthly entries for calendar (only when calendar is shown and user is logged in)
+  // Load monthly entries for calendar (optimized with cache)
   useEffect(() => {
     async function loadMonthlyEntries() {
       if (!showCalendar || !user || isLoading) return;
+
+      const year = selectedDate.getFullYear().toString();
+      const month = selectedDate.getMonth() + 1; // getMonth() returns 0-11
+      const yearMonth = `${year}-${month.toString().padStart(2, '0')}`;
+
       try {
-        const yearMonth = selectedDate.toISOString().slice(0, 7); // YYYY-MM
+        // Try to use cached year data first
+        const cachedYearData = yearlyEntriesCache[year];
+        if (cachedYearData) {
+          const monthEntries = cachedYearData.filter(entry => entry.date.startsWith(yearMonth));
+          console.log('[DEBUG] Monthly entries from cache:', monthEntries.length);
+          setMonthlyEntries(monthEntries);
+          return;
+        }
+
+        // Fallback to API call if no cache
+        console.log('[DEBUG] Loading monthly entries from API...');
         const entries = await getDiaryEntriesByMonth(yearMonth);
-        console.log('[DEBUG] Monthly entries loaded:', entries);
+        console.log('[DEBUG] Monthly entries loaded from API:', entries.length);
         setMonthlyEntries(entries);
       } catch (error) {
         console.error("Failed to load monthly entries:", error);
       }
     }
     loadMonthlyEntries();
-  }, [selectedDate, showCalendar, user?.userId, isLoading]);
+  }, [selectedDate, showCalendar, user?.userId, isLoading, yearlyEntriesCache]);
 
   // Auto load activity suggestions for empty plan days (optimized)
   useEffect(() => {
@@ -304,15 +352,19 @@ function DiaryApp() {
         user_id: user?.userId,
       });
 
-      const imageResult = await generateImage({
-        prompt: textResult.image_prompt,
-        style: "watercolor",
-        aspect_ratio: "1:1",
-      });
+      let imageUrl = null;
+      if (planGenerateImage) {
+        const imageResult = await generateImage({
+          prompt: textResult.image_prompt,
+          style: "watercolor",
+          aspect_ratio: "1:1",
+        });
+        imageUrl = imageResult.public_url || null;
+      }
 
       const newPlanPage = {
         text: textResult.generated_text,
-        imageUrl: imageResult.public_url || null,
+        imageUrl,
         loading: false,
       };
 
@@ -345,15 +397,19 @@ function DiaryApp() {
         user_id: user?.userId,
       });
 
-      const imageResult = await generateImage({
-        prompt: textResult.image_prompt,
-        style: "watercolor",
-        aspect_ratio: "1:1",
-      });
+      let imageUrl = null;
+      if (actualGenerateImage) {
+        const imageResult = await generateImage({
+          prompt: textResult.image_prompt,
+          style: "watercolor",
+          aspect_ratio: "1:1",
+        });
+        imageUrl = imageResult.public_url || null;
+      }
 
       const newActualPage = {
         text: textResult.generated_text,
-        imageUrl: imageResult.public_url || null,
+        imageUrl,
         loading: false,
       };
 
@@ -397,6 +453,21 @@ function DiaryApp() {
         ...updates,
       });
       setSavedEntry(savedEntryData);
+
+      // Update year cache with new entry
+      if (user?.userId) {
+        const currentYear = new Date().getFullYear().toString();
+        const cachedYearData = yearlyEntriesCache[currentYear];
+        if (cachedYearData) {
+          const updatedCache = cachedYearData.filter(entry => entry.date !== selectedDateString);
+          updatedCache.push(savedEntryData);
+          setYearlyEntriesCache({ ...yearlyEntriesCache, [currentYear]: updatedCache });
+
+          // Update localStorage cache
+          const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
+          localStorage.setItem(cacheKey, JSON.stringify(updatedCache));
+        }
+      }
 
       // Clear uploaded images after save
       if (planImageUpload) {
@@ -907,16 +978,39 @@ function DiaryApp() {
                 <div className="mt-4 rounded-2xl border border-purple-200 bg-purple-50/50 p-4">
                   <h4 className="text-sm font-semibold text-purple-700 mb-3 flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 713 12V7a4 4 0 014-4z" />
                     </svg>
-                    保存された予定
+                    保存されたタグ・予定
                   </h4>
-                  {Object.keys(taggedPlans).length === 0 ? (
+
+                  {/* Saved Tags Section */}
+                  {savedTags.length > 0 && (
+                    <div className="mb-4">
+                      <h5 className="text-xs font-medium text-purple-600 mb-2">📝 保存されたタグ</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {savedTags.map((tag, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              setPlanTags(prev => prev.includes(tag) ? prev : [...prev, tag]);
+                            }}
+                            className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
+                          >
+                            #{tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Saved Plans Section */}
+                  {Object.keys(taggedPlans).length === 0 && savedTags.length === 0 ? (
                     <p className="text-sm text-purple-600">
-                      まだ保存された予定がありません。<br />
+                      まだ保存されたタグ・予定がありません。<br />
                       予定にタグを追加して「保存」ボタンを押すと、後で再利用できます。
                     </p>
-                  ) : (
+                  ) : Object.keys(taggedPlans).length > 0 ? (
+                    <div>
+                      <h5 className="text-xs font-medium text-purple-600 mb-2">📋 保存された予定</h5>
                     <div className="space-y-3">
                       {Object.entries(taggedPlans).map(([tag, plans]) => (
                         <div key={tag} className="border border-purple-100 rounded-xl p-3 bg-white/60">
@@ -943,7 +1037,8 @@ function DiaryApp() {
                         </div>
                       ))}
                     </div>
-                  )}
+                    </div>
+                  ) : null}
                   <button
                     onClick={() => setShowTagLibrary(false)}
                     className="mt-3 text-xs text-purple-600 hover:text-purple-700"
@@ -1001,13 +1096,25 @@ function DiaryApp() {
                     日記風に変換
                   </label>
                 </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="plan-generate-image"
+                    checked={planGenerateImage}
+                    onChange={(e) => setPlanGenerateImage(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="plan-generate-image" className="text-sm text-slate-600">
+                    画像を生成
+                  </label>
+                </div>
                 <button
                   type="button"
                   onClick={handleGeneratePlan}
                   disabled={planPage.loading}
                   className="w-full rounded-2xl bg-blue-500 py-3 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:bg-slate-200"
                 >
-                  {planPage.loading ? "生成中..." : planUseAI ? "未来日記を生成" : "画像付きで保存"}
+                  {planPage.loading ? "生成中..." : planUseAI ? "未来日記を生成" : "保存"}
                 </button>
               </div>
               {/* Photo upload for plan */}
@@ -1109,13 +1216,25 @@ function DiaryApp() {
                     日記風に変換
                   </label>
                 </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="actual-generate-image"
+                    checked={actualGenerateImage}
+                    onChange={(e) => setActualGenerateImage(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="actual-generate-image" className="text-sm text-slate-600">
+                    画像を生成
+                  </label>
+                </div>
                 <button
                   type="button"
                   onClick={handleGenerateActual}
                   disabled={actualPage.loading || !actualInput.trim()}
                   className="w-full rounded-2xl bg-emerald-500 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:bg-slate-200"
                 >
-                  {actualPage.loading ? "生成中..." : actualUseAI ? "実際の日記を生成" : "画像付きで保存"}
+                  {actualPage.loading ? "生成中..." : actualUseAI ? "実際の日記を生成" : "保存"}
                 </button>
               </div>
               {/* Photo upload for actual */}

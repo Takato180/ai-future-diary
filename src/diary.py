@@ -106,6 +106,39 @@ async def get_entries_by_month(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get entries: {str(e)}")
 
+@router.get("/entries/year/{year}", response_model=List[DiaryEntryResponse])
+async def get_entries_by_year(
+    year: int,
+    current_user_id: Optional[str] = Depends(get_current_user),
+    user_id: str = Query(default=None, description="User ID (optional)")
+):
+    """
+    指定年の日記エントリ一覧を取得（パフォーマンス最適化用）
+
+    Args:
+        year: 年（例: 2024）
+        user_id: ユーザーID（デフォルト: anonymous）
+    """
+    try:
+        # ユーザーIDを決定（認証済みの場合は現在のユーザーを優先、未認証の場合のみクエリパラメータかデフォルト値を使用）
+        effective_user_id = current_user_id if current_user_id else (user_id or "anonymous")
+
+        # 年の全月を取得
+        all_entries = []
+        for month in range(1, 13):
+            month_str = f"{year:04d}-{month:02d}"
+            try:
+                entries = await get_diary_entries_by_month(effective_user_id, month_str)
+                all_entries.extend(entries)
+            except Exception as e:
+                print(f"Failed to get entries for {month_str}: {e}")
+                continue
+
+        return all_entries
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get year entries: {str(e)}")
+
 @router.post("/entries/{date}/diff")
 async def create_diff_summary(
     date: str,

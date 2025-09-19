@@ -83,6 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user?.userId) {
       localStorage.removeItem(`taggedPlans_${user.userId}`);
       localStorage.removeItem(`savedTags_${user.userId}`);
+
+      // Clear year cache
+      const currentYear = new Date().getFullYear();
+      localStorage.removeItem(`yearEntries_${user.userId}_${currentYear}`);
     }
 
     setUser(null);
