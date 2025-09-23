@@ -4,7 +4,12 @@
       "Bash(npm run build:*)",
       "Bash(python:*)",
       "Bash(pip install:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(set PROJECT_ID=ai-future-diary)",
+      "Bash(set GOOGLE_CLOUD_PROJECT=ai-future-diary)",
+      "Bash($env:PROJECT_ID=\"ai-future-diary\")",
+      "Bash($env:GOOGLE_CLOUD_PROJECT=\"ai-future-diary\")",
+      "Bash(PROJECT_ID=ai-future-diary GOOGLE_CLOUD_PROJECT=ai-future-diary python test_env.py)"
     ],
     "deny": [],
     "ask": []

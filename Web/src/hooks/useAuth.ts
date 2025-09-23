@@ -79,14 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    // Clear user data from localStorage
+    // Clear user data from localStorage only for this specific user
     if (user?.userId) {
       localStorage.removeItem(`taggedPlans_${user.userId}`);
       localStorage.removeItem(`savedTags_${user.userId}`);
 
-      // Clear year cache
+      // Clear year cache for all years for this user
       const currentYear = new Date().getFullYear();
-      localStorage.removeItem(`yearEntries_${user.userId}_${currentYear}`);
+      for (let year = currentYear - 1; year <= currentYear + 1; year++) {
+        localStorage.removeItem(`yearEntries_${user.userId}_${year}`);
+      }
     }
 
     setUser(null);

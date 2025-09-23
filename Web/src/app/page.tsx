@@ -266,9 +266,24 @@ function DiaryApp() {
           entry = cachedYearData.find(e => e.date === selectedDateString) || null;
           console.log('[DEBUG] Entry loaded from cache for:', selectedDateString);
         } else {
-          // Fallback to API call if no cache available
+          // Fallback to API call if no cache available, and refresh year data
           console.log('[DEBUG] Loading entry from API for:', selectedDateString);
           entry = await getDiaryEntry(selectedDateString);
+
+          // Also refresh the year cache to avoid future API calls
+          try {
+            console.log('[DEBUG] Refreshing year cache for:', currentYear);
+            const yearEntries = await getDiaryEntriesByYear(parseInt(currentYear));
+            setYearlyEntriesCache(prev => ({
+              ...prev,
+              [currentYear]: yearEntries
+            }));
+            // Save to localStorage
+            const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
+            localStorage.setItem(cacheKey, JSON.stringify(yearEntries));
+          } catch (error) {
+            console.error('[DEBUG] Failed to refresh year cache:', error);
+          }
         }
         if (entry) {
           console.log('[DEBUG] Restoring complete entry data:', entry);
@@ -413,6 +428,13 @@ function DiaryApp() {
     setPlanInputHistory(planInput);
 
     try {
+      // If not using AI and there's no text input, check if there's an uploaded image
+      if (!planUseAI && !planInput.trim() && !planImageUpload) {
+        alert("テキストを入力するか、写真をアップロードしてください。");
+        setPlanPage((prev) => ({ ...prev, loading: false }));
+        return;
+      }
+
       const textResult = await generateFutureDiary({
         plan: planInput || undefined,
         interests: interestList.length > 0 ? interestList : undefined,
@@ -452,7 +474,12 @@ function DiaryApp() {
   }
 
   async function handleGenerateActual() {
-    if (!actualInput.trim()) return;
+    // If not using AI and there's no text input, check if there's an uploaded image
+    if (!actualUseAI && !actualInput.trim() && !actualImageUpload) {
+      alert("テキストを入力するか、写真をアップロードしてください。");
+      return;
+    }
+
     setActualPage((prev) => ({ ...prev, loading: true }));
 
     // Save user input for editing later
