@@ -46,6 +46,19 @@ function isValidHttpUrl(url?: string | null): boolean {
   }
 }
 
+function isValidImageUrl(url?: string | null): boolean {
+  if (!url) return false;
+  try {
+    // HTTP/HTTPS URLs
+    const u = new URL(url);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return true;
+  } catch {
+    // Not a valid URL
+  }
+  // Data URLs for image previews
+  return url.startsWith('data:image/');
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function sanitizeImageUrls(entry: any): any {
   return {
@@ -1395,26 +1408,20 @@ function DiaryApp() {
                       </p>
                     </div>
                   )}
-                  {(isValidHttpUrl(planImagePreview) || isValidHttpUrl(planPage.imageUrl)) && (
-                    <div className="relative overflow-hidden rounded-2xl border border-blue-100">
-                      {isValidHttpUrl(planImagePreview) ? (
-                        <Image
-                          src={planImagePreview!}
-                          alt="アップロードした写真"
-                          width={640}
-                          height={480}
-                          className="h-56 w-full object-cover"
-                        />
-                      ) : isValidHttpUrl(planPage.imageUrl) ? (
-                        <Image
-                          src={`${planPage.imageUrl!}?v=${savedEntry?.updatedAt || Date.now()}`}
-                          alt="未来日記の挿絵"
-                          width={640}
-                          height={480}
-                          className="h-56 w-full object-cover"
-                        />
-                      ) : null}
-                      {isValidHttpUrl(planImagePreview) && (
+                  {/* Display both uploaded and generated images */}
+                  {(isValidImageUrl(planImagePreview) || isValidHttpUrl(savedEntry?.planUploadedImageUrl)) && (
+                    <div className="relative overflow-hidden rounded-2xl border border-blue-100 mb-4">
+                      <Image
+                        src={planImagePreview || `${savedEntry?.planUploadedImageUrl}?v=${savedEntry?.updatedAt || Date.now()}`}
+                        alt="アップロードした写真"
+                        width={640}
+                        height={480}
+                        className="h-56 w-full object-cover"
+                      />
+                      <div className="absolute bottom-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                        アップロード画像
+                      </div>
+                      {isValidImageUrl(planImagePreview) && (
                         <button
                           onClick={() => removeUploadedImage('plan')}
                           className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
@@ -1422,6 +1429,20 @@ function DiaryApp() {
                           ×
                         </button>
                       )}
+                    </div>
+                  )}
+                  {isValidHttpUrl(planPage.imageUrl) && (
+                    <div className="relative overflow-hidden rounded-2xl border border-purple-100">
+                      <Image
+                        src={`${planPage.imageUrl!}?v=${savedEntry?.updatedAt || Date.now()}`}
+                        alt="未来日記の挿絵"
+                        width={640}
+                        height={480}
+                        className="h-56 w-full object-cover"
+                      />
+                      <div className="absolute bottom-2 left-2 bg-purple-600 text-white px-2 py-1 rounded text-xs">
+                        AI生成画像
+                      </div>
                     </div>
                   )}
                   {planPage.text && (
@@ -1516,26 +1537,20 @@ function DiaryApp() {
                       </p>
                     </div>
                   )}
-                  {(isValidHttpUrl(actualImagePreview) || isValidHttpUrl(actualPage.imageUrl)) && (
-                    <div className="relative overflow-hidden rounded-2xl border border-emerald-100">
-                      {isValidHttpUrl(actualImagePreview) ? (
-                        <Image
-                          src={actualImagePreview!}
-                          alt="アップロードした写真"
-                          width={640}
-                          height={480}
-                          className="h-56 w-full object-cover"
-                        />
-                      ) : isValidHttpUrl(actualPage.imageUrl) ? (
-                        <Image
-                          src={`${actualPage.imageUrl!}?v=${savedEntry?.updatedAt || Date.now()}`}
-                          alt="実際日記の挿絵"
-                          width={640}
-                          height={480}
-                          className="h-56 w-full object-cover"
-                        />
-                      ) : null}
-                      {isValidHttpUrl(actualImagePreview) && (
+                  {/* Display both uploaded and generated images */}
+                  {(isValidImageUrl(actualImagePreview) || isValidHttpUrl(savedEntry?.actualUploadedImageUrl)) && (
+                    <div className="relative overflow-hidden rounded-2xl border border-emerald-100 mb-4">
+                      <Image
+                        src={actualImagePreview || `${savedEntry?.actualUploadedImageUrl}?v=${savedEntry?.updatedAt || Date.now()}`}
+                        alt="アップロードした写真"
+                        width={640}
+                        height={480}
+                        className="h-56 w-full object-cover"
+                      />
+                      <div className="absolute bottom-2 left-2 bg-emerald-600 text-white px-2 py-1 rounded text-xs">
+                        アップロード画像
+                      </div>
+                      {isValidImageUrl(actualImagePreview) && (
                         <button
                           onClick={() => removeUploadedImage('actual')}
                           className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
@@ -1543,6 +1558,20 @@ function DiaryApp() {
                           ×
                         </button>
                       )}
+                    </div>
+                  )}
+                  {isValidHttpUrl(actualPage.imageUrl) && (
+                    <div className="relative overflow-hidden rounded-2xl border border-orange-100">
+                      <Image
+                        src={`${actualPage.imageUrl!}?v=${savedEntry?.updatedAt || Date.now()}`}
+                        alt="実際日記の挿絵"
+                        width={640}
+                        height={480}
+                        className="h-56 w-full object-cover"
+                      />
+                      <div className="absolute bottom-2 left-2 bg-orange-600 text-white px-2 py-1 rounded text-xs">
+                        AI生成画像
+                      </div>
                     </div>
                   )}
                   {actualPage.text && (
