@@ -36,6 +36,26 @@ function cleanMarkdownArtifacts(text: string): string {
     .trim();
 }
 
+function isValidHttpUrl(url?: string | null): boolean {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeImageUrls(entry: any) {
+  return {
+    ...entry,
+    planImageUrl: isValidHttpUrl(entry.planImageUrl) ? entry.planImageUrl : undefined,
+    planUploadedImageUrl: isValidHttpUrl(entry.planUploadedImageUrl) ? entry.planUploadedImageUrl : undefined,
+    actualImageUrl: isValidHttpUrl(entry.actualImageUrl) ? entry.actualImageUrl : undefined,
+    actualUploadedImageUrl: isValidHttpUrl(entry.actualUploadedImageUrl) ? entry.actualUploadedImageUrl : undefined,
+  };
+}
+
 type DiffSummary = {
   message: string;
   addedKeywords: string[];
@@ -280,26 +300,30 @@ function DiaryApp() {
           try {
             // Load entire month which should be fast for current data size
             const monthEntries = await getDiaryEntriesByMonth(monthStr, user.userId);
-            console.log('[DEBUG] Loaded month entries:', monthEntries.length);
+            // Sanitize entries to prevent invalid URLs
+            const sanitizedMonthEntries = monthEntries.map(sanitizeImageUrls);
+            console.log('[DEBUG] Loaded month entries (sanitized):', sanitizedMonthEntries.length);
 
             // Update cache with month data
             setYearlyEntriesCache(prev => ({
               ...prev,
-              [currentYear]: monthEntries
+              [currentYear]: sanitizedMonthEntries
             }));
 
             // Save to localStorage
             const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
-            localStorage.setItem(cacheKey, JSON.stringify(monthEntries));
+            localStorage.setItem(cacheKey, JSON.stringify(sanitizedMonthEntries));
 
             // Find target entry in loaded data
-            entry = monthEntries.find(e => e.date === selectedDateString) || null;
+            entry = sanitizedMonthEntries.find(e => e.date === selectedDateString) || null;
           } catch (error) {
             console.error('[DEBUG] Failed to load month data:', error);
           }
         }
         if (entry) {
-          console.log('[DEBUG] Restoring complete entry data:', entry);
+          // Sanitize entry data to prevent invalid URLs
+          entry = sanitizeImageUrls(entry);
+          console.log('[DEBUG] Restoring complete entry data (sanitized):', entry);
           console.log('[DEBUG] Image URLs check:', {
             planImageUrl: entry.planImageUrl,
             planUploadedImageUrl: entry.planUploadedImageUrl,
@@ -420,8 +444,10 @@ function DiaryApp() {
         // Fallback to API call if no cache
         console.log('[DEBUG] Loading monthly entries from API...');
         const entries = await getDiaryEntriesByMonth(yearMonth, user?.userId);
-        console.log('[DEBUG] Monthly entries loaded from API:', entries.length);
-        setMonthlyEntries(entries);
+        // Sanitize entries to prevent invalid URLs
+        const sanitizedEntries = entries.map(sanitizeImageUrls);
+        console.log('[DEBUG] Monthly entries loaded from API (sanitized):', sanitizedEntries.length);
+        setMonthlyEntries(sanitizedEntries);
       } catch (error) {
         console.error("Failed to load monthly entries:", error);
       }
@@ -587,7 +613,7 @@ function DiaryApp() {
         actualUploadedImageUrl = uploadedUrl; // Save to separate field
       }
 
-      const entryToSave = {
+      const entryToSave = sanitizeImageUrls({
         date: selectedDateString,
         planImageUrl, // AI生成画像
         planUploadedImageUrl, // アップロード画像
@@ -597,7 +623,7 @@ function DiaryApp() {
         actualInputPrompt: actualInputHistory,
         tags: [...planTags, ...actualTags],
         ...updates,
-      };
+      });
 
       console.log('[DEBUG] Saving diary entry:', entryToSave);
       console.log('[DEBUG] Image upload states:', { planImageUpload: !!planImageUpload, actualImageUpload: !!actualImageUpload });
@@ -1346,24 +1372,24 @@ function DiaryApp() {
                       </p>
                     </div>
                   )}
-                  {(planImagePreview || planPage.imageUrl) && (
+                  {(isValidHttpUrl(planImagePreview) || isValidHttpUrl(planPage.imageUrl)) && (
                     <div className="relative overflow-hidden rounded-2xl border border-blue-100">
-                      {planImagePreview ? (
+                      {isValidHttpUrl(planImagePreview) ? (
                         <img
-                          src={planImagePreview}
+                          src={planImagePreview!}
                           alt="アップロードした写真"
                           className="h-56 w-full object-cover"
                         />
-                      ) : (
+                      ) : isValidHttpUrl(planPage.imageUrl) ? (
                         <Image
-                          src={planPage.imageUrl || ""}
+                          src={planPage.imageUrl!}
                           alt="未来日記の挿絵"
                           width={640}
                           height={480}
                           className="h-56 w-full object-cover"
                         />
-                      )}
-                      {planImagePreview && (
+                      ) : null}
+                      {isValidHttpUrl(planImagePreview) && (
                         <button
                           onClick={() => removeUploadedImage('plan')}
                           className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
@@ -1465,24 +1491,24 @@ function DiaryApp() {
                       </p>
                     </div>
                   )}
-                  {(actualImagePreview || actualPage.imageUrl) && (
+                  {(isValidHttpUrl(actualImagePreview) || isValidHttpUrl(actualPage.imageUrl)) && (
                     <div className="relative overflow-hidden rounded-2xl border border-emerald-100">
-                      {actualImagePreview ? (
+                      {isValidHttpUrl(actualImagePreview) ? (
                         <img
-                          src={actualImagePreview}
+                          src={actualImagePreview!}
                           alt="アップロードした写真"
                           className="h-56 w-full object-cover"
                         />
-                      ) : (
+                      ) : isValidHttpUrl(actualPage.imageUrl) ? (
                         <Image
-                          src={actualPage.imageUrl || ""}
+                          src={actualPage.imageUrl!}
                           alt="実際日記の挿絵"
                           width={640}
                           height={480}
                           className="h-56 w-full object-cover"
                         />
-                      )}
-                      {actualImagePreview && (
+                      ) : null}
+                      {isValidHttpUrl(actualImagePreview) && (
                         <button
                           onClick={() => removeUploadedImage('actual')}
                           className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
