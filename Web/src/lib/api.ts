@@ -511,7 +511,29 @@ export async function checkStreak(token: string): Promise<StreakCheckResponse> {
 }
 
 // デバッグ用エンドポイント
-export async function getStreakDebugInfo(token: string): Promise<any> {
+export async function getStreakDebugInfo(token: string): Promise<{
+  user_id: string;
+  registration_date: string;
+  total_entries: number;
+  valid_entries_count: number;
+  entries_after_registration: number;
+  all_entry_dates: string[];
+  valid_entry_dates: string[];
+  entries_after_reg_dates: string[];
+  consecutive_analysis: Array<{
+    from: string;
+    to: string;
+    gap_days: number;
+    is_consecutive: boolean;
+  }>;
+  sample_entries: Array<{
+    date: string;
+    has_plan: boolean;
+    has_actual: boolean;
+    plan_preview?: string;
+    actual_preview?: string;
+  }>;
+}> {
   const r = await fetch(`${API}/diary/streak-debug`, {
     headers: {
       'Authorization': `Bearer ${token}`

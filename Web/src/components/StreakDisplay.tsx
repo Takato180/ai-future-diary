@@ -9,11 +9,36 @@ interface StreakDisplayProps {
   refreshTrigger?: number; // 外部から更新をトリガーするための値
 }
 
+// getStreakDebugInfoの戻り値の型と一致させる
+interface DebugInfo {
+  user_id: string;
+  registration_date: string;
+  total_entries: number;
+  valid_entries_count: number;
+  entries_after_registration: number;
+  all_entry_dates: string[];
+  valid_entry_dates: string[];
+  entries_after_reg_dates: string[];
+  consecutive_analysis: Array<{
+    from: string;
+    to: string;
+    gap_days: number;
+    is_consecutive: boolean;
+  }>;
+  sample_entries: Array<{
+    date: string;
+    has_plan: boolean;
+    has_actual: boolean;
+    plan_preview?: string;
+    actual_preview?: string;
+  }>;
+}
+
 export default function StreakDisplay({ token, userId, refreshTrigger }: StreakDisplayProps) {
   const [streakData, setStreakData] = useState<StreakCheckResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
@@ -267,8 +292,8 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
             <div>
               <strong>連続性分析:</strong>
               <div className="mt-1 space-y-1">
-                {debugInfo.consecutive_analysis?.slice(0, 5).map((item: any, index: number) => (
-                  <div key={index} className={`text-xs p-1 rounded ${item.is_consecutive ? 'bg-green-100' : 'bg-red-100'}`}>
+                {debugInfo.consecutive_analysis?.slice(0, 5).map((item, idx) => (
+                  <div key={idx} className={`text-xs p-1 rounded ${item.is_consecutive ? 'bg-green-100' : 'bg-red-100'}`}>
                     {item.from} → {item.to} (差: {item.gap_days}日) {item.is_consecutive ? "✓" : "✗"}
                   </div>
                 )) || "分析データなし"}
@@ -277,8 +302,8 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
             <div>
               <strong>サンプルエントリ:</strong>
               <div className="mt-1 space-y-1 max-h-32 overflow-y-auto">
-                {debugInfo.sample_entries?.map((entry: any, index: number) => (
-                  <div key={index} className="text-xs p-1 bg-white rounded">
+                {debugInfo.sample_entries?.map((entry, idx) => (
+                  <div key={idx} className="text-xs p-1 bg-white rounded">
                     <div><strong>{entry.date}</strong></div>
                     <div>予定: {entry.has_plan ? "あり" : "なし"}</div>
                     <div>実際: {entry.has_actual ? "あり" : "なし"}</div>
