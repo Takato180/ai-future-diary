@@ -11,7 +11,10 @@
       "Bash($env:GOOGLE_CLOUD_PROJECT=\"ai-future-diary\")",
       "Bash(PROJECT_ID=ai-future-diary GOOGLE_CLOUD_PROJECT=ai-future-diary python test_env.py)",
       "Bash(npm run dev:*)",
-      "Bash(echo $PROJECT_ID)"
+      "Bash(echo $PROJECT_ID)",
+      "Bash(timeout:*)",
+      "Bash(set BUCKET_NAME=ai-future-diary-bucket)",
+      "Bash(set BUCKET_NAME=ai-future-diary)"
     ],
     "deny": [],
     "ask": []

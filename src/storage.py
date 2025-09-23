@@ -4,19 +4,31 @@ from datetime import timedelta
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from starlette.responses import StreamingResponse
 from google.cloud import storage as gcs
-# 署名付きURL（GET/PUT）
-from google.auth import default as google_auth_default
+# IAM Signer for Cloud Run
+from google.auth import compute_engine, iam
 from google.auth.transport.requests import Request
-from google.auth.iam import Signer
 
 router = APIRouter(prefix="/storage", tags=["storage"])
 
-PROJECT_ID = os.environ.get("PROJECT_ID")
-BUCKET_NAME = os.environ.get("BUCKET_NAME")
-SERVICE_ACCOUNT_EMAIL = os.environ.get("SERVICE_ACCOUNT_EMAIL")  # 署名URL用
+PROJECT_ID = os.environ.get("PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+BUCKET_NAME = os.environ.get("BUCKET_NAME", "ai-future-diary")
 
 def _client():
     return gcs.Client(project=PROJECT_ID)
+
+def _get_iam_signer():
+    """Cloud Run環境でIAM Signerを取得"""
+    try:
+        # Cloud Runのメタデータ認証情報を取得
+        base_creds = compute_engine.Credentials()
+        # サービスアカウントのメールアドレスを取得
+        sa_email = base_creds.service_account_email
+        # IAM Signerを作成
+        signer = iam.Signer(Request(), base_creds, sa_email)
+        return signer
+    except Exception as e:
+        print(f"IAM Signer creation failed: {e}")
+        return None
 
 # ---- 署名付きURL（GET/PUT） ----
 @router.get("/signed-url")
@@ -28,20 +40,23 @@ def get_signed_url(
 ):
     if not BUCKET_NAME:
         raise HTTPException(500, "BUCKET_NAME is not set")
-    if not SERVICE_ACCOUNT_EMAIL:
-        raise HTTPException(500, "SERVICE_ACCOUNT_EMAIL is not set")
 
     try:
         client = _client()
         bucket = client.bucket(BUCKET_NAME)
         blob = bucket.blob(object_path)
 
+        # IAM Signerを使用
+        signer = _get_iam_signer()
+        if not signer:
+            raise HTTPException(500, "Failed to create IAM signer")
+
         url = blob.generate_signed_url(
             version="v4",
             expiration=timedelta(seconds=expires_sec),
             method=method,
             content_type=content_type if method == "PUT" else None,
-            service_account_email=SERVICE_ACCOUNT_EMAIL,  # IAM に委譲
+            credentials=signer,
         )
         return {"signed_url": url}
     except Exception as e:
@@ -55,26 +70,37 @@ async def upload_file(
 ):
     if not BUCKET_NAME:
         raise HTTPException(500, "BUCKET_NAME is not set")
-    if not SERVICE_ACCOUNT_EMAIL:
-        raise HTTPException(500, "SERVICE_ACCOUNT_EMAIL is not set")
     try:
         client = _client()
         bucket = client.bucket(BUCKET_NAME)
         blob = bucket.blob(object_path)
         blob.upload_from_file(file.file, content_type=file.content_type)
 
-        # Generate signed URL for accessing the uploaded file
-        signed_url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(hours=24),  # 24 hour access
-            method="GET",
-            service_account_email=SERVICE_ACCOUNT_EMAIL,
-        )
+        # Make the uploaded file publicly accessible (same as image generation)
+        blob.make_public()
+
+        # Generate public URL for accessing the uploaded file
+        public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{object_path}"
+
+        # Try to generate signed URL with IAM Signer for backup access
+        signed_url = public_url  # fallback to public URL
+        try:
+            signer = _get_iam_signer()
+            if signer:
+                signed_url = blob.generate_signed_url(
+                    version="v4",
+                    expiration=timedelta(hours=24),
+                    method="GET",
+                    credentials=signer,
+                )
+        except Exception as e:
+            print(f"Failed to generate signed URL, using public URL: {e}")
 
         return {
             "path": object_path,
             "content_type": file.content_type,
-            "signed_url": signed_url
+            "signed_url": signed_url,
+            "public_url": public_url
         }
     except Exception as e:
         raise HTTPException(500, str(e))
