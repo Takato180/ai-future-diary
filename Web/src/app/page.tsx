@@ -46,7 +46,8 @@ function isValidHttpUrl(url?: string | null): boolean {
   }
 }
 
-function sanitizeImageUrls(entry: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sanitizeImageUrls(entry: any): any {
   return {
     ...entry,
     planImageUrl: isValidHttpUrl(entry.planImageUrl) ? entry.planImageUrl : undefined,
@@ -325,66 +326,66 @@ function DiaryApp() {
           entry = sanitizeImageUrls(entry);
           console.log('[DEBUG] Restoring complete entry data (sanitized):', entry);
           console.log('[DEBUG] Image URLs check:', {
-            planImageUrl: entry.planImageUrl,
-            planUploadedImageUrl: entry.planUploadedImageUrl,
-            actualImageUrl: entry.actualImageUrl,
-            actualUploadedImageUrl: entry.actualUploadedImageUrl
+            planImageUrl: entry?.planImageUrl,
+            planUploadedImageUrl: entry?.planUploadedImageUrl,
+            actualImageUrl: entry?.actualImageUrl,
+            actualUploadedImageUrl: entry?.actualUploadedImageUrl
           });
           setSavedEntry(entry);
 
           // Restore plan data completely
-          if (entry.planText) {
-            setPlanPage(prev => ({ ...prev, text: entry.planText || "" }));
+          if (entry?.planText) {
+            setPlanPage(prev => ({ ...prev, text: entry?.planText || "" }));
           }
           // Priority: uploaded image first, then AI-generated image
-          const planDisplayImage = entry.planUploadedImageUrl || entry.planImageUrl;
+          const planDisplayImage = entry?.planUploadedImageUrl || entry?.planImageUrl;
           console.log('[DEBUG] Plan display image selected:', planDisplayImage, {
-            priority: entry.planUploadedImageUrl ? 'uploaded' : 'generated'
+            priority: entry?.planUploadedImageUrl ? 'uploaded' : 'generated'
           });
           if (planDisplayImage) {
             setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
           }
           // Restore uploaded image preview if exists
-          if (entry.planUploadedImageUrl) {
+          if (entry?.planUploadedImageUrl) {
             setPlanImagePreview(entry.planUploadedImageUrl);
             console.log('[DEBUG] Restored plan uploaded image preview:', entry.planUploadedImageUrl);
           }
 
           // Restore actual data completely
-          if (entry.actualText) {
-            setActualPage(prev => ({ ...prev, text: entry.actualText || "" }));
+          if (entry?.actualText) {
+            setActualPage(prev => ({ ...prev, text: entry?.actualText || "" }));
           }
           // Priority: uploaded image first, then AI-generated image
-          const actualDisplayImage = entry.actualUploadedImageUrl || entry.actualImageUrl;
+          const actualDisplayImage = entry?.actualUploadedImageUrl || entry?.actualImageUrl;
           console.log('[DEBUG] Actual display image selected:', actualDisplayImage, {
-            priority: entry.actualUploadedImageUrl ? 'uploaded' : 'generated'
+            priority: entry?.actualUploadedImageUrl ? 'uploaded' : 'generated'
           });
           if (actualDisplayImage) {
             setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
           }
           // Restore uploaded image preview if exists
-          if (entry.actualUploadedImageUrl) {
+          if (entry?.actualUploadedImageUrl) {
             setActualImagePreview(entry.actualUploadedImageUrl);
             console.log('[DEBUG] Restored actual uploaded image preview:', entry.actualUploadedImageUrl);
           }
 
           // Restore diff summary
-          if (entry.diffText) {
+          if (entry?.diffText) {
             setAiDiffSummary(entry.diffText);
           }
 
           // Restore tags
-          if (entry.tags && entry.tags.length > 0) {
+          if (entry?.tags && entry.tags.length > 0) {
             setPlanTags(entry.tags);
             setActualTags([]);
           }
 
           // Restore input prompts to input fields (always restore for editing)
-          if (entry.planInputPrompt) {
+          if (entry?.planInputPrompt) {
             setPlanInputHistory(entry.planInputPrompt);
             setPlanInput(entry.planInputPrompt); // Always restore for editing
           }
-          if (entry.actualInputPrompt) {
+          if (entry?.actualInputPrompt) {
             setActualInputHistory(entry.actualInputPrompt);
             setActualInput(entry.actualInputPrompt); // Always restore for editing
           }
@@ -420,6 +421,7 @@ function DiaryApp() {
       }
     }
     loadEntry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateString, user, isLoading]); // Remove yearlyEntriesCache to prevent infinite loop
 
   // Load monthly entries for calendar (optimized with cache)
@@ -453,6 +455,7 @@ function DiaryApp() {
       }
     }
     loadMonthlyEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, showCalendar, user, isLoading]); // Remove yearlyEntriesCache to prevent infinite loop
 
   // Auto load activity suggestions for empty plan days (optimized)
@@ -1375,9 +1378,11 @@ function DiaryApp() {
                   {(isValidHttpUrl(planImagePreview) || isValidHttpUrl(planPage.imageUrl)) && (
                     <div className="relative overflow-hidden rounded-2xl border border-blue-100">
                       {isValidHttpUrl(planImagePreview) ? (
-                        <img
+                        <Image
                           src={planImagePreview!}
                           alt="アップロードした写真"
+                          width={640}
+                          height={480}
                           className="h-56 w-full object-cover"
                         />
                       ) : isValidHttpUrl(planPage.imageUrl) ? (
@@ -1494,9 +1499,11 @@ function DiaryApp() {
                   {(isValidHttpUrl(actualImagePreview) || isValidHttpUrl(actualPage.imageUrl)) && (
                     <div className="relative overflow-hidden rounded-2xl border border-emerald-100">
                       {isValidHttpUrl(actualImagePreview) ? (
-                        <img
+                        <Image
                           src={actualImagePreview!}
                           alt="アップロードした写真"
+                          width={640}
+                          height={480}
                           className="h-56 w-full object-cover"
                         />
                       ) : isValidHttpUrl(actualPage.imageUrl) ? (
