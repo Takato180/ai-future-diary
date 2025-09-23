@@ -707,13 +707,15 @@ function DiaryApp() {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const result = e.target?.result as string;
+        console.log('[DEBUG] Image preview created:', type, result.slice(0, 50) + '...');
+
         if (type === 'plan') {
           setPlanImageUpload(file);
           setPlanImagePreview(result);
 
           // 自動保存: 写真アップロード時に即座に保存
           try {
-            console.log('[DEBUG] Auto-saving plan uploaded image...');
+            console.log('[DEBUG] Auto-saving plan uploaded image, file:', file.name, file.size);
             await saveToDiary({
               planUploadedImageUrl: 'uploading...' // プレースホルダー、saveToDiary内で実際のURLに置換
             });
@@ -727,7 +729,7 @@ function DiaryApp() {
 
           // 自動保存: 写真アップロード時に即座に保存
           try {
-            console.log('[DEBUG] Auto-saving actual uploaded image...');
+            console.log('[DEBUG] Auto-saving actual uploaded image, file:', file.name, file.size);
             await saveToDiary({
               actualUploadedImageUrl: 'uploading...' // プレースホルダー、saveToDiary内で実際のURLに置換
             });
@@ -738,6 +740,8 @@ function DiaryApp() {
         }
       };
       reader.readAsDataURL(file);
+    } else {
+      console.log('[ERROR] Invalid file type:', file?.type);
     }
   }
 
@@ -1312,13 +1316,21 @@ function DiaryApp() {
                   )}
                   {(planImagePreview || planPage.imageUrl) && (
                     <div className="relative overflow-hidden rounded-2xl border border-blue-100">
-                      <Image
-                        src={planImagePreview || planPage.imageUrl || ""}
-                        alt={planImagePreview ? "アップロードした写真" : "未来日記の挿絵"}
-                        width={640}
-                        height={480}
-                        className="h-56 w-full object-cover"
-                      />
+                      {planImagePreview ? (
+                        <img
+                          src={planImagePreview}
+                          alt="アップロードした写真"
+                          className="h-56 w-full object-cover"
+                        />
+                      ) : (
+                        <Image
+                          src={planPage.imageUrl || ""}
+                          alt="未来日記の挿絵"
+                          width={640}
+                          height={480}
+                          className="h-56 w-full object-cover"
+                        />
+                      )}
                       {planImagePreview && (
                         <button
                           onClick={() => removeUploadedImage('plan')}
@@ -1423,13 +1435,21 @@ function DiaryApp() {
                   )}
                   {(actualImagePreview || actualPage.imageUrl) && (
                     <div className="relative overflow-hidden rounded-2xl border border-emerald-100">
-                      <Image
-                        src={actualImagePreview || actualPage.imageUrl || ""}
-                        alt={actualImagePreview ? "アップロードした写真" : "実際日記の挿絵"}
-                        width={640}
-                        height={480}
-                        className="h-56 w-full object-cover"
-                      />
+                      {actualImagePreview ? (
+                        <img
+                          src={actualImagePreview}
+                          alt="アップロードした写真"
+                          className="h-56 w-full object-cover"
+                        />
+                      ) : (
+                        <Image
+                          src={actualPage.imageUrl || ""}
+                          alt="実際日記の挿絵"
+                          width={640}
+                          height={480}
+                          className="h-56 w-full object-cover"
+                        />
+                      )}
                       {actualImagePreview && (
                         <button
                           onClick={() => removeUploadedImage('actual')}

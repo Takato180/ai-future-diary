@@ -26,8 +26,8 @@ export async function uploadImageFile(file: File, path: string): Promise<string>
   }
 
   const result = await uploadResponse.json();
-  // Return public URL - construct from API base and storage path
-  return `${API}/storage/files/${path}`;
+  // Return direct Cloud Storage public URL (same as AI generated images)
+  return `https://storage.googleapis.com/ai-future-diary/${path}`;
 }
 
 // Text Generation API
