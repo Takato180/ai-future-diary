@@ -55,12 +55,27 @@ async def upload_file(
 ):
     if not BUCKET_NAME:
         raise HTTPException(500, "BUCKET_NAME is not set")
+    if not SERVICE_ACCOUNT_EMAIL:
+        raise HTTPException(500, "SERVICE_ACCOUNT_EMAIL is not set")
     try:
         client = _client()
         bucket = client.bucket(BUCKET_NAME)
         blob = bucket.blob(object_path)
         blob.upload_from_file(file.file, content_type=file.content_type)
-        return {"path": object_path, "content_type": file.content_type}
+
+        # Generate signed URL for accessing the uploaded file
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(hours=24),  # 24 hour access
+            method="GET",
+            service_account_email=SERVICE_ACCOUNT_EMAIL,
+        )
+
+        return {
+            "path": object_path,
+            "content_type": file.content_type,
+            "signed_url": signed_url
+        }
     except Exception as e:
         raise HTTPException(500, str(e))
 

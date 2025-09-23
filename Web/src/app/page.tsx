@@ -300,6 +300,12 @@ function DiaryApp() {
         }
         if (entry) {
           console.log('[DEBUG] Restoring complete entry data:', entry);
+          console.log('[DEBUG] Image URLs check:', {
+            planImageUrl: entry.planImageUrl,
+            planUploadedImageUrl: entry.planUploadedImageUrl,
+            actualImageUrl: entry.actualImageUrl,
+            actualUploadedImageUrl: entry.actualUploadedImageUrl
+          });
           setSavedEntry(entry);
 
           // Restore plan data completely
@@ -308,6 +314,9 @@ function DiaryApp() {
           }
           // Priority: uploaded image first, then AI-generated image
           const planDisplayImage = entry.planUploadedImageUrl || entry.planImageUrl;
+          console.log('[DEBUG] Plan display image selected:', planDisplayImage, {
+            priority: entry.planUploadedImageUrl ? 'uploaded' : 'generated'
+          });
           if (planDisplayImage) {
             setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
             // Keep uploaded images for editing - don't clear them
@@ -319,6 +328,9 @@ function DiaryApp() {
           }
           // Priority: uploaded image first, then AI-generated image
           const actualDisplayImage = entry.actualUploadedImageUrl || entry.actualImageUrl;
+          console.log('[DEBUG] Actual display image selected:', actualDisplayImage, {
+            priority: entry.actualUploadedImageUrl ? 'uploaded' : 'generated'
+          });
           if (actualDisplayImage) {
             setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
             // Keep uploaded images for editing - don't clear them
