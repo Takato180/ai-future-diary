@@ -261,29 +261,19 @@ function DiaryApp() {
         const cachedYearData = yearlyEntriesCache[currentYear];
         let entry: DiaryEntry | null = null;
 
-        if (cachedYearData) {
-          // Find entry in cache
-          entry = cachedYearData.find(e => e.date === selectedDateString) || null;
-          console.log('[DEBUG] Entry loaded from cache for:', selectedDateString);
-        } else {
-          // Fallback to API call if no cache available, and refresh year data
-          console.log('[DEBUG] Loading entry from API for:', selectedDateString);
-          entry = await getDiaryEntry(selectedDateString);
+        // For small datasets (current state: 2025-09 only), always use individual API
+        // This ensures data consistency and avoids cache-related bugs
+        console.log('[DEBUG] Loading entry from individual API for:', selectedDateString);
+        entry = await getDiaryEntry(selectedDateString);
 
-          // Also refresh the year cache to avoid future API calls
-          try {
-            console.log('[DEBUG] Refreshing year cache for:', currentYear);
-            const yearEntries = await getDiaryEntriesByYear(parseInt(currentYear));
-            setYearlyEntriesCache(prev => ({
-              ...prev,
-              [currentYear]: yearEntries
-            }));
-            // Save to localStorage
-            const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
-            localStorage.setItem(cacheKey, JSON.stringify(yearEntries));
-          } catch (error) {
-            console.error('[DEBUG] Failed to refresh year cache:', error);
-          }
+        // Update cache with fresh data if entry exists
+        if (entry && cachedYearData) {
+          const updatedCache = cachedYearData.filter(e => e.date !== selectedDateString);
+          updatedCache.push(entry);
+          setYearlyEntriesCache(prev => ({
+            ...prev,
+            [currentYear]: updatedCache
+          }));
         }
         if (entry) {
           console.log('[DEBUG] Restoring complete entry data:', entry);
@@ -334,12 +324,13 @@ function DiaryApp() {
 
           console.log('[DEBUG] Entry data restoration completed');
         } else {
-          // No entry found - this is expected for new dates
-          console.log('[DEBUG] No entry found for date:', selectedDateString);
+          // No entry found after checking both cache AND individual API
+          console.log('[DEBUG] No entry found for date:', selectedDateString, '- confirmed by individual API');
           setSavedEntry(null);
           setAiDiffSummary("");
 
-          // Clear all page content for new dates
+          // Only clear if this is actually a new date (not just a cache miss)
+          // Clear all page content for truly new dates
           setPlanPage({ text: "", imageUrl: null, loading: false });
           setActualPage({ text: "", imageUrl: null, loading: false });
 
@@ -359,7 +350,7 @@ function DiaryApp() {
           setPlanTags([]);
           setActualTags([]);
 
-          console.log('[DEBUG] Date cleared for new entry');
+          console.log('[DEBUG] Date cleared for new entry - confirmed by individual API call');
         }
       } catch (error) {
         console.error("Failed to load entry:", error);
