@@ -19,6 +19,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
 import UserHeader from "@/components/UserHeader";
 import IntroPlayer from "@/components/IntroPlayer";
+import StreakDisplay from "@/components/StreakDisplay";
 
 type DiaryPageState = {
   text: string;
@@ -144,6 +145,7 @@ function DiaryApp() {
   const [taggedPlans, setTaggedPlans] = useState<{ [key: string]: string[] }>({});
   const [planInputHistory, setPlanInputHistory] = useState<string>("");
   const [actualInputHistory, setActualInputHistory] = useState<string>("");
+  const [streakRefreshTrigger, setStreakRefreshTrigger] = useState(0); // ストリーク更新トリガー
 
   const diffSummary = useMemo(
     () => buildDiffSummary(planPage.text, actualPage.text),
@@ -724,6 +726,11 @@ function DiaryApp() {
 
       // Keep uploaded images after save for continued editing
       // Don't clear them - user might want to add text or make changes
+
+      // ストリーク情報を更新（日記保存時）
+      if (updates.planText || updates.actualText) {
+        setStreakRefreshTrigger(prev => prev + 1);
+      }
     } catch (error) {
       console.error("Failed to save diary entry:", error);
     }
@@ -1092,6 +1099,9 @@ function DiaryApp() {
             次の日へ
           </button>
         </section>
+
+        {/* ストリーク表示 */}
+        <StreakDisplay token={token || undefined} userId={user?.userId} refreshTrigger={streakRefreshTrigger} />
 
         {showCalendar && (
           <section className="rounded-3xl bg-white/80 p-6 shadow-lg backdrop-blur">

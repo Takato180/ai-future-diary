@@ -266,6 +266,47 @@ def _check_consecutive_days(entries: List[DiaryEntryResponse], target_days: int 
     # 連続する7日間の日付を返す
     return [entry.date for entry in valid_entries[:target_days]]
 
+def _calculate_current_streak(entries: List[DiaryEntryResponse]) -> int:
+    """現在の連続記録日数を計算（改善版）"""
+    if not entries:
+        return 0
+
+    # 実際のテキストが入力されているエントリのみを対象にして日付順でソート
+    valid_entries = [e for e in entries if e.actualText and e.actualText.strip()]
+    if not valid_entries:
+        return 0
+    
+    valid_entries = sorted(valid_entries, key=lambda x: x.date, reverse=True)
+    
+    today = datetime.now().date()
+    current_streak = 0
+    
+    # 最新の記録日から開始
+    latest_entry_date = datetime.strptime(valid_entries[0].date, "%Y-%m-%d").date()
+    
+    # 今日の記録があるか、昨日の記録があるかをチェック
+    if latest_entry_date == today:
+        # 今日の記録がある場合：今日から遡って計算
+        start_date = today
+    elif latest_entry_date == today - timedelta(days=1):
+        # 昨日の記録がある場合（今日はまだ記録していない）：昨日から遡って計算
+        start_date = latest_entry_date
+    else:
+        # 最新の記録が2日以上前の場合：ストリークは途切れている
+        return 0
+    
+    # 連続記録日数を計算
+    for i, entry in enumerate(valid_entries):
+        entry_date = datetime.strptime(entry.date, "%Y-%m-%d").date()
+        expected_date = start_date - timedelta(days=i)
+        
+        if entry_date == expected_date:
+            current_streak += 1
+        else:
+            break
+    
+    return current_streak
+
 @router.get("/streak-check")
 async def check_streak(
     current_user_id: Optional[str] = Depends(get_current_user)
@@ -290,21 +331,8 @@ async def check_streak(
                 "total_entries": len(entries)
             }
         else:
-            # 現在の連続記録日数も計算
-            current_streak = 0
-            valid_entries = [e for e in sorted(entries, key=lambda x: x.date, reverse=True)
-                           if e.actualText and e.actualText.strip()]
-
-            if valid_entries:
-                today = datetime.now().date()
-                for i, entry in enumerate(valid_entries):
-                    entry_date = datetime.strptime(entry.date, "%Y-%m-%d").date()
-                    expected_date = today - timedelta(days=i)
-
-                    if entry_date == expected_date:
-                        current_streak += 1
-                    else:
-                        break
+            # 現在の連続記録日数も計算（改善版）
+            current_streak = _calculate_current_streak(entries)
 
             return {
                 "has_seven_day_streak": False,
