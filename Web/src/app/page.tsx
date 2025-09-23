@@ -392,7 +392,7 @@ function DiaryApp() {
       }
     }
     loadEntry();
-  }, [selectedDateString, user, isLoading, yearlyEntriesCache]); // Also trigger when user changes
+  }, [selectedDateString, user, isLoading]); // Remove yearlyEntriesCache to prevent infinite loop
 
   // Load monthly entries for calendar (optimized with cache)
   useEffect(() => {
@@ -423,7 +423,7 @@ function DiaryApp() {
       }
     }
     loadMonthlyEntries();
-  }, [selectedDate, showCalendar, user, isLoading, yearlyEntriesCache]); // キャッシュは内部で適切に処理される
+  }, [selectedDate, showCalendar, user, isLoading]); // Remove yearlyEntriesCache to prevent infinite loop
 
   // Auto load activity suggestions for empty plan days (optimized)
   useEffect(() => {
