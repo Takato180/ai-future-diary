@@ -492,6 +492,12 @@ export interface StreakCheckResponse {
   total_entries: number;
   needed_for_seven: number;
   registration_date: string;
+  debug?: {
+    total_entries: number;
+    valid_entries: number;
+    valid_entry_dates: string[];
+    registration_date: string;
+  };
 }
 
 export async function checkStreak(token: string): Promise<StreakCheckResponse> {

@@ -199,21 +199,38 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
         </div>
       )}
 
-      {/* リフレッシュボタン */}
-      <button
-        onClick={() => {
-          if (token) {
-            setLoading(true);
-            checkStreak(token)
-              .then(setStreakData)
-              .catch(() => setError("更新に失敗しました"))
-              .finally(() => setLoading(false));
-          }
-        }}
-        className="mt-3 w-full text-xs text-slate-500 hover:text-slate-700 transition-colors"
-      >
-        🔄 更新
-      </button>
+      {/* リフレッシュボタンとデバッグ情報 */}
+      <div className="mt-3 space-y-2">
+        <button
+          onClick={() => {
+            if (token) {
+              setLoading(true);
+              checkStreak(token)
+                .then(setStreakData)
+                .catch(() => setError("更新に失敗しました"))
+                .finally(() => setLoading(false));
+            }
+          }}
+          className="w-full text-xs text-slate-500 hover:text-slate-700 transition-colors"
+        >
+          🔄 更新
+        </button>
+        
+        {/* デバッグ情報 */}
+        {streakData.debug && (
+          <details className="text-xs">
+            <summary className="text-slate-500 cursor-pointer hover:text-slate-700">
+              デバッグ情報 (開発用)
+            </summary>
+            <div className="mt-2 p-2 bg-gray-50 rounded text-slate-600 space-y-1">
+              <div>総エントリ数: {streakData.debug.total_entries}</div>
+              <div>有効エントリ数: {streakData.debug.valid_entries}</div>
+              <div>登録日: {streakData.debug.registration_date}</div>
+              <div>エントリ日付: {streakData.debug.valid_entry_dates.join(', ')}</div>
+            </div>
+          </details>
+        )}
+      </div>
     </div>
   );
 }

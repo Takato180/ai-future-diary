@@ -309,7 +309,7 @@ def _calculate_current_streak(entries: List[DiaryEntryResponse]) -> int:
     return current_streak
 
 def _find_all_seven_day_streaks(entries: List[DiaryEntryResponse], user_registration_date: datetime) -> List[dict]:
-    """登録日以降の全ての7日連続記録を検索"""
+    """登録日以降の全ての7日連続記録を検索（ハッカソン対応版）"""
     if not entries:
         return []
     
@@ -325,52 +325,63 @@ def _find_all_seven_day_streaks(entries: List[DiaryEntryResponse], user_registra
     registration_date = user_registration_date.date()
     valid_entries = [e for e in valid_entries if datetime.strptime(e.date, "%Y-%m-%d").date() >= registration_date]
     
+    print(f"[STREAK DEBUG] Valid entries after registration filter: {len(valid_entries)}")
+    print(f"[STREAK DEBUG] Dates: {[e.date for e in valid_entries]}")
+    
     if len(valid_entries) < 7:
+        print(f"[STREAK DEBUG] Not enough entries for 7-day streak")
         return []
     
     streaks = []
-    i = 0
+    start_idx = 0
     
-    while i <= len(valid_entries) - 7:
-        # 現在の位置から7日連続かチェック
+    # すべての可能な7日間の組み合わせをチェック
+    while start_idx <= len(valid_entries) - 7:
+        # 7日連続かチェック
         is_consecutive = True
         streak_dates = []
         
         for j in range(7):
-            current_date = datetime.strptime(valid_entries[i + j].date, "%Y-%m-%d").date()
-            streak_dates.append(valid_entries[i + j].date)
+            current_entry = valid_entries[start_idx + j]
+            current_date = datetime.strptime(current_entry.date, "%Y-%m-%d").date()
+            streak_dates.append(current_entry.date)
             
             if j > 0:
-                prev_date = datetime.strptime(valid_entries[i + j - 1].date, "%Y-%m-%d").date()
+                prev_date = datetime.strptime(valid_entries[start_idx + j - 1].date, "%Y-%m-%d").date()
                 if (current_date - prev_date).days != 1:
                     is_consecutive = False
                     break
         
         if is_consecutive:
             # 7日連続を発見
-            streaks.append({
+            streak_info = {
                 "start_date": streak_dates[0],
                 "end_date": streak_dates[6],
                 "dates": streak_dates,
                 "completed_at": streak_dates[6]  # 7日目の日付
-            })
-            # 7日間スキップして次のストリークを探す（リセット）
-            i += 7
+            }
+            streaks.append(streak_info)
+            print(f"[STREAK DEBUG] Found 7-day streak: {streak_info}")
+            
+            # ハッカソン用：重複を避けるため7日分スキップ
+            start_idx += 7
         else:
-            i += 1
+            start_idx += 1
     
+    print(f"[STREAK DEBUG] Total streaks found: {len(streaks)}")
     return streaks
 
 def _calculate_current_streak_with_resets(entries: List[DiaryEntryResponse], completed_streaks: List[dict]) -> int:
-    """完了したストリークを考慮して現在のストリーク日数を計算"""
+    """完了したストリークを考慮して現在のストリーク日数を計算（ハッカソン対応版）"""
     if not entries:
         return 0
     
-    # 実際のテキストが入力されているエントリのみを対象にして日付順でソート
+    # 実際のテキストが入力されているエントリのみを対象
     valid_entries = [e for e in entries if e.actualText and e.actualText.strip()]
     if not valid_entries:
         return 0
     
+    # 日付でソート（新しい順）
     valid_entries = sorted(valid_entries, key=lambda x: x.date, reverse=True)
     
     # 最後に完了したストリークの終了日を取得
@@ -378,34 +389,42 @@ def _calculate_current_streak_with_resets(entries: List[DiaryEntryResponse], com
     if completed_streaks:
         last_completed = max(completed_streaks, key=lambda x: x["completed_at"])
         last_completed_date = datetime.strptime(last_completed["completed_at"], "%Y-%m-%d").date()
+        print(f"[STREAK DEBUG] Last completed streak end date: {last_completed_date}")
     
-    today = datetime.now().date()
-    current_streak = 0
+    # 完了したストリーク以降のエントリを対象とする
+    current_entries = []
+    for entry in valid_entries:
+        entry_date = datetime.strptime(entry.date, "%Y-%m-%d").date()
+        if last_completed_date is None or entry_date > last_completed_date:
+            current_entries.append(entry)
     
-    # 最新の記録日から開始
-    latest_entry_date = datetime.strptime(valid_entries[0].date, "%Y-%m-%d").date()
+    print(f"[STREAK DEBUG] Entries after last completed streak: {len(current_entries)}")
+    if current_entries:
+        print(f"[STREAK DEBUG] Current entry dates: {[e.date for e in current_entries]}")
     
-    # 今日の記録があるか、昨日の記録があるかをチェック
-    if latest_entry_date == today:
-        start_date = today
-    elif latest_entry_date == today - timedelta(days=1):
-        start_date = latest_entry_date
-    else:
+    if not current_entries:
         return 0
     
-    # 連続記録日数を計算（完了したストリークの翌日から）
-    for i, entry in enumerate(valid_entries):
-        entry_date = datetime.strptime(entry.date, "%Y-%m-%d").date()
-        expected_date = start_date - timedelta(days=i)
+    # 最新の日付から遡って連続記録を計算
+    current_streak = 1  # 最新のエントリは確実にカウント
+    prev_date = datetime.strptime(current_entries[0].date, "%Y-%m-%d").date()
+    
+    print(f"[STREAK DEBUG] Starting from date: {prev_date}")
+    
+    for i in range(1, len(current_entries)):
+        current_date = datetime.strptime(current_entries[i].date, "%Y-%m-%d").date()
         
-        if entry_date == expected_date:
-            # 完了したストリークの範囲内の場合はカウントしない
-            if last_completed_date and entry_date <= last_completed_date:
-                break
+        if (prev_date - current_date).days == 1:
+            # 前日の記録がある（連続）
             current_streak += 1
+            prev_date = current_date
+            print(f"[STREAK DEBUG] Consecutive day found: {current_date}, streak now: {current_streak}")
         else:
+            # 連続が途切れた
+            print(f"[STREAK DEBUG] Break in streak at: {current_date}, gap: {(prev_date - current_date).days} days")
             break
     
+    print(f"[STREAK DEBUG] Final current streak: {current_streak}")
     return current_streak
 
 @router.get("/streak-check")
@@ -426,11 +445,23 @@ async def check_streak(
         current_year = datetime.now().year
         entries = await get_diary_entries_by_year(current_user_id, current_year)
 
+        # デバッグ用ログ
+        valid_entries = [e for e in entries if e.actualText and e.actualText.strip()]
+        print(f"[STREAK DEBUG] User: {current_user_id}")
+        print(f"[STREAK DEBUG] Total entries: {len(entries)}")
+        print(f"[STREAK DEBUG] Valid entries (with actualText): {len(valid_entries)}")
+        print(f"[STREAK DEBUG] Valid entry dates: {[e.date for e in sorted(valid_entries, key=lambda x: x.date)]}")
+        print(f"[STREAK DEBUG] Registration date: {user.createdAt.date()}")
+
         # 登録日以降の全ての7日連続記録を検索
         completed_streaks = _find_all_seven_day_streaks(entries, user.createdAt)
+        print(f"[STREAK DEBUG] Completed streaks found: {len(completed_streaks)}")
+        if completed_streaks:
+            print(f"[STREAK DEBUG] Completed streaks details: {completed_streaks}")
 
         # 現在のストリーク日数を計算（完了したストリークを除外）
         current_streak = _calculate_current_streak_with_resets(entries, completed_streaks)
+        print(f"[STREAK DEBUG] Current streak calculated: {current_streak}")
 
         return {
             "has_seven_day_streak": len(completed_streaks) > 0,
@@ -440,8 +471,16 @@ async def check_streak(
             "current_streak": current_streak,
             "total_entries": len([e for e in entries if e.actualText and e.actualText.strip()]),
             "needed_for_seven": max(0, 7 - current_streak),
-            "registration_date": user.createdAt.date().isoformat()
+            "registration_date": user.createdAt.date().isoformat(),
+            # デバッグ情報も追加
+            "debug": {
+                "total_entries": len(entries),
+                "valid_entries": len(valid_entries),
+                "valid_entry_dates": [e.date for e in sorted(valid_entries, key=lambda x: x.date)],
+                "registration_date": user.createdAt.date().isoformat()
+            }
         }
 
     except Exception as e:
+        print(f"[STREAK ERROR] {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to check streak: {str(e)}")
