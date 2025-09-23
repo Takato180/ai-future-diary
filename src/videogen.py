@@ -38,7 +38,8 @@ def _get_veo_model():
     try:
         import vertexai
         vertexai.init(project=PROJECT_ID, location=LOCATION)
-        return VideoGenerationModel.from_pretrained("veo-001")
+        # 最新のVeo 3.0モデルを使用
+        return VideoGenerationModel.from_pretrained("veo-3.0-generate-001")
     except Exception as e:
         print(f"Failed to initialize Veo model: {e}")
         raise e
