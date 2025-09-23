@@ -661,6 +661,14 @@ function DiaryApp() {
         actualDisplayImage
       });
 
+      // Update preview states for uploaded images
+      if (savedEntryData.planUploadedImageUrl) {
+        setPlanImagePreview(savedEntryData.planUploadedImageUrl);
+      }
+      if (savedEntryData.actualUploadedImageUrl) {
+        setActualImagePreview(savedEntryData.actualUploadedImageUrl);
+      }
+
       if (planDisplayImage) {
         setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
       }
@@ -1431,10 +1439,10 @@ function DiaryApp() {
                       )}
                     </div>
                   )}
-                  {isValidHttpUrl(planPage.imageUrl) && (
+                  {isValidHttpUrl(savedEntry?.planImageUrl) && savedEntry?.planImageUrl !== savedEntry?.planUploadedImageUrl && (
                     <div className="relative overflow-hidden rounded-2xl border border-purple-100">
                       <Image
-                        src={`${planPage.imageUrl!}?v=${savedEntry?.updatedAt || Date.now()}`}
+                        src={`${savedEntry?.planImageUrl}?v=${savedEntry?.updatedAt || Date.now()}`}
                         alt="未来日記の挿絵"
                         width={640}
                         height={480}
@@ -1560,10 +1568,10 @@ function DiaryApp() {
                       )}
                     </div>
                   )}
-                  {isValidHttpUrl(actualPage.imageUrl) && (
+                  {isValidHttpUrl(savedEntry?.actualImageUrl) && savedEntry?.actualImageUrl !== savedEntry?.actualUploadedImageUrl && (
                     <div className="relative overflow-hidden rounded-2xl border border-orange-100">
                       <Image
-                        src={`${actualPage.imageUrl!}?v=${savedEntry?.updatedAt || Date.now()}`}
+                        src={`${savedEntry?.actualImageUrl}?v=${savedEntry?.updatedAt || Date.now()}`}
                         alt="実際日記の挿絵"
                         width={640}
                         height={480}
