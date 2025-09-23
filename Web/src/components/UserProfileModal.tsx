@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
-import { updateUserProfile, UserProfileUpdate } from '@/lib/api';
+import { updateUserProfile, UserProfileUpdate, generateSpecialVideo, checkStreak } from '@/lib/api';
 import Portal from './Portal';
 
 interface UserProfileModalProps {
@@ -15,6 +15,10 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
   const { user, token, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [videoGenerating, setVideoGenerating] = useState(false);
+  const [videoError, setVideoError] = useState('');
+  const [videoSuccess, setVideoSuccess] = useState('');
+  const [hasSevenDayStreak, setHasSevenDayStreak] = useState(false);
   const [formData, setFormData] = useState<UserProfileUpdate>({
     birth_date: '',
     gender: '',
@@ -57,6 +61,21 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
     }
   }, [user]);
 
+  // 7日間ストリークをチェック
+  useEffect(() => {
+    const checkUserStreak = async () => {
+      if (token && isOpen) {
+        try {
+          const streakResult = await checkStreak(token);
+          setHasSevenDayStreak(streakResult.has_seven_day_streak);
+        } catch (error) {
+          console.error('Failed to check streak:', error);
+        }
+      }
+    };
+    checkUserStreak();
+  }, [token, isOpen]);
+
   // Modal opened - reload form data
   useEffect(() => {
     if (isOpen && user) {
@@ -97,6 +116,26 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  // 特別動画生成ハンドラー
+  const handleGenerateSpecialVideo = async () => {
+    if (!token) return;
+
+    setVideoGenerating(true);
+    setVideoError('');
+    setVideoSuccess('');
+
+    try {
+      const result = await generateSpecialVideo(token);
+      setVideoSuccess(`特別動画が生成されました！次回ログイン時に表示されます。`);
+      console.log('Special video generated:', result);
+    } catch (error) {
+      console.error('Failed to generate special video:', error);
+      setVideoError('動画生成に失敗しました。7日間連続記録があることを確認してください。');
+    } finally {
+      setVideoGenerating(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -422,6 +461,50 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
               </div>
             </div>
           </div>
+
+          {/* 特別動画生成セクション */}
+          {hasSevenDayStreak && (
+            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 space-y-4">
+              <h3 className="text-xl font-semibold text-slate-700 border-b border-yellow-200 pb-3 flex items-center gap-2">
+                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                特別動画生成
+              </h3>
+
+              <div className="text-sm text-slate-600 mb-4">
+                🎉 7日間連続記録を達成しました！あなただけの特別な動画を生成できます。
+              </div>
+
+              {videoError && (
+                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+                  {videoError}
+                </div>
+              )}
+
+              {videoSuccess && (
+                <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg">
+                  {videoSuccess}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleGenerateSpecialVideo}
+                disabled={videoGenerating}
+                className="w-full bg-gradient-to-r from-yellow-500 to-orange-600 text-white py-3 px-6 rounded-2xl font-semibold transition hover:from-yellow-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg"
+              >
+                {videoGenerating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    動画生成中... (最大5分)
+                  </span>
+                ) : (
+                  '🎬 特別動画を生成する'
+                )}
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
