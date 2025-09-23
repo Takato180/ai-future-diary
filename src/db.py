@@ -514,3 +514,49 @@ def get_firestore_status() -> Dict[str, Any]:
             "database_id": DATABASE_ID,
             "error": str(e)
         }
+
+async def get_diary_entries_by_year(user_id: str, year: int) -> List[DiaryEntryResponse]:
+    """指定年のすべての日記エントリを取得"""
+    if not db:
+        return []
+
+    try:
+        # 年の範囲でクエリ
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
+
+        docs = db.collection("diary_entries") \
+                .where("userId", "==", user_id) \
+                .where("date", ">=", start_date) \
+                .where("date", "<=", end_date) \
+                .order_by("date") \
+                .get()
+
+        entries = []
+        for doc in docs:
+            data = doc.to_dict()
+            if data:
+                # データの安全性チェック
+                entry = DiaryEntryResponse(
+                    userId=data.get("userId", user_id),
+                    date=data.get("date"),
+                    planText=data.get("planText"),
+                    planImageUrl=data.get("planImageUrl"),
+                    planInputPrompt=data.get("planInputPrompt"),
+                    actualText=data.get("actualText"),
+                    actualImageUrl=data.get("actualImageUrl"),
+                    actualInputPrompt=data.get("actualInputPrompt"),
+                    diffText=data.get("diffText"),
+                    tags=data.get("tags", []),
+                    createdAt=data.get("createdAt"),
+                    updatedAt=data.get("updatedAt"),
+                    version=data.get("version", 1)
+                )
+                entries.append(entry)
+
+        print(f"[DB] get_diary_entries_by_year: Found {len(entries)} entries for user {user_id} in year {year}")
+        return entries
+
+    except Exception as e:
+        print(f"Failed to get diary entries for year {year}: {e}")
+        return []

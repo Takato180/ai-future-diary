@@ -169,12 +169,27 @@ export async function getDiaryEntry(date: string, userId: string = 'anonymous'):
   // 認証済みの場合はuser_idクエリパラメータを送らない（JWTから自動取得）
   const url = token ? `${API}/diary/entries/${date}` : `${API}/diary/entries/${date}?user_id=${userId}`;
 
+  console.log('[API] getDiaryEntry called:', { date, userId, hasToken: !!token, url });
+
   const r = await fetch(url, {
     headers,
   });
-  if (r.status === 404) return null;
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+
+  console.log('[API] getDiaryEntry response:', { status: r.status, ok: r.ok });
+
+  if (r.status === 404) {
+    console.log('[API] getDiaryEntry: No entry found for date', date);
+    return null;
+  }
+  if (!r.ok) {
+    const errorText = await r.text();
+    console.error('[API] getDiaryEntry error:', errorText);
+    throw new Error(errorText);
+  }
+
+  const result = await r.json();
+  console.log('[API] getDiaryEntry result:', result);
+  return result;
 }
 
 export async function getDiaryEntriesByMonth(month: string, userId: string = 'anonymous'): Promise<DiaryEntry[]> {
@@ -206,11 +221,23 @@ export async function getDiaryEntriesByYear(year: number, userId: string = 'anon
   // 認証済みの場合はuser_idクエリパラメータを送らない（JWTから自動取得）
   const url = token ? `${API}/diary/entries/year/${year}` : `${API}/diary/entries/year/${year}?user_id=${userId}`;
 
+  console.log('[API] getDiaryEntriesByYear called:', { year, userId, hasToken: !!token, url });
+
   const r = await fetch(url, {
     headers,
   });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+
+  console.log('[API] getDiaryEntriesByYear response:', { status: r.status, ok: r.ok });
+
+  if (!r.ok) {
+    const errorText = await r.text();
+    console.error('[API] getDiaryEntriesByYear error:', errorText);
+    throw new Error(errorText);
+  }
+
+  const result = await r.json();
+  console.log('[API] getDiaryEntriesByYear result:', { year, count: result.length, entries: result });
+  return result;
 }
 
 export async function generateDiffSummary(date: string, userId: string = 'anonymous'): Promise<{ date: string; userId: string; diffText: string }> {

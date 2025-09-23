@@ -71,7 +71,14 @@ async def get_entry(
         # ユーザーIDを決定（認証済みの場合は現在のユーザーを優先、未認証の場合のみクエリパラメータかデフォルト値を使用）
         effective_user_id = current_user_id if current_user_id else (user_id or "anonymous")
 
+        print(f"[DIARY] get_entry called: date={date}, current_user_id={current_user_id}, query_user_id={user_id}, effective_user_id={effective_user_id}")
+
         entry = await get_diary_entry(effective_user_id, date)
+
+        print(f"[DIARY] get_entry result: entry_found={entry is not None}")
+        if entry:
+            print(f"[DIARY] Entry details: userId={entry.userId}, date={entry.date}, has_planText={bool(entry.planText)}, has_actualText={bool(entry.actualText)}")
+
         return entry
 
     except ValueError:
@@ -124,6 +131,8 @@ async def get_entries_by_year(
         # ユーザーIDを決定（認証済みの場合は現在のユーザーを優先、未認証の場合のみクエリパラメータかデフォルト値を使用）
         effective_user_id = current_user_id if current_user_id else (user_id or "anonymous")
 
+        print(f"[DIARY] get_entries_by_year called: year={year}, current_user_id={current_user_id}, query_user_id={user_id}, effective_user_id={effective_user_id}")
+
         # 年の全月を取得
         all_entries = []
         for month in range(1, 13):
@@ -131,10 +140,13 @@ async def get_entries_by_year(
             try:
                 entries = await get_diary_entries_by_month(effective_user_id, month_str)
                 all_entries.extend(entries)
+                if entries:
+                    print(f"[DIARY] Found {len(entries)} entries for {month_str}")
             except Exception as e:
-                print(f"Failed to get entries for {month_str}: {e}")
+                print(f"[DIARY] Failed to get entries for {month_str}: {e}")
                 continue
 
+        print(f"[DIARY] get_entries_by_year result: total_entries={len(all_entries)} for user {effective_user_id}")
         return all_entries
 
     except Exception as e:

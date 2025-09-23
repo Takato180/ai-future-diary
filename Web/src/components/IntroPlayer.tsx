@@ -17,11 +17,8 @@ export default function IntroPlayer({ token }: { token?: string }) {
         const { url } = await getIntroConfig();
         setUrl(url);
 
-        // 毎回表示する（セッションごとに1回）
-        if (!sessionStorage.getItem('intro_shown_this_session')) {
-          setShow(true);
-          sessionStorage.setItem('intro_shown_this_session', '1');
-        }
+        // 毎回ログイン時に表示する
+        setShow(true);
 
         // 認証ユーザーの場合、特別動画があるかチェック（7日間連続記録後の特別動画用）
         if (token) {
@@ -40,10 +37,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
         console.error('Failed to load intro config:', e);
         // エラーの場合はアニメーションフォールバックを使用
         setUseAnimationFallback(true);
-        if (!sessionStorage.getItem('intro_shown_this_session')) {
-          setShow(true);
-          sessionStorage.setItem('intro_shown_this_session', '1');
-        }
+        setShow(true);
       } finally {
         setLoading(false);
       }
@@ -55,8 +49,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
       if (dontShowAgain && !useAnimationFallback && token) {
         await markIntroSeen(true, token);
       }
-      // セッション内での再表示は防ぐが、次回ログイン時は表示する
-      sessionStorage.setItem('intro_finished_this_session', '1');
+      // 動画を閉じる（毎回ログイン時に表示する）
     } catch (e) {
       console.error('Failed to mark intro as seen:', e);
     } finally {
@@ -72,7 +65,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-4xl">
         {/* 閉じるボタン */}
         <button
           onClick={finish}
@@ -83,7 +76,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
 
         {useAnimationFallback ? (
           // CSS アニメーションフォールバック (または Veo 生成中)
-          <div className="w-full h-80 bg-gradient-to-br from-blue-900 via-purple-900 to-blue-800 rounded-2xl shadow-2xl flex items-center justify-center relative overflow-hidden">
+          <div className="w-full h-[70vh] bg-gradient-to-br from-blue-900 via-purple-900 to-blue-800 rounded-2xl shadow-2xl flex items-center justify-center relative overflow-hidden">
             {/* Background animation */}
             <div className="absolute inset-0 opacity-30">
               <div className="absolute top-10 left-10 w-20 h-20 bg-white/20 rounded-full animate-bounce"></div>
@@ -154,7 +147,7 @@ export default function IntroPlayer({ token }: { token?: string }) {
           <video
             key={url}
             src={url}
-            className="w-full h-80 rounded-2xl shadow-2xl object-cover"
+            className="w-full h-[70vh] rounded-2xl shadow-2xl object-cover"
             autoPlay
             muted
             playsInline

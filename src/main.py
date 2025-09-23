@@ -5,44 +5,44 @@ from .storage import router as storage_router
 print("=== Loading AI routers ===")
 try:
     from .imagegen import router as image_router
-    print("✓ Image router loaded successfully")
+    print("OK Image router loaded successfully")
 except Exception as e:
-    print(f"✗ Image router failed: {e}")
+    print(f"ERROR Image router failed: {e}")
     image_router = None
 
 try:
     from .textgen import router as text_router
-    print("✓ Text router loaded successfully")
+    print("OK Text router loaded successfully")
 except Exception as e:
-    print(f"✗ Text router failed: {e}")
+    print(f"ERROR Text router failed: {e}")
     text_router = None
 
 try:
     from .diary import router as diary_router
-    print("✓ Diary router loaded successfully")
+    print("OK Diary router loaded successfully")
 except Exception as e:
-    print(f"✗ Diary router failed: {e}")
+    print(f"ERROR Diary router failed: {e}")
     diary_router = None
 
 try:
     from .auth import router as auth_router
-    print("✓ Auth router loaded successfully")
+    print("OK Auth router loaded successfully")
 except Exception as e:
-    print(f"✗ Auth router failed: {e}")
+    print(f"ERROR Auth router failed: {e}")
     auth_router = None
 
 try:
     from .intro import router as intro_router
-    print("✓ Intro router loaded successfully")
+    print("OK Intro router loaded successfully")
 except Exception as e:
-    print(f"✗ Intro router failed: {e}")
+    print(f"ERROR Intro router failed: {e}")
     intro_router = None
 
 try:
     from .videogen import router as video_router
-    print("✓ Video router loaded successfully")
+    print("OK Video router loaded successfully")
 except Exception as e:
-    print(f"✗ Video router failed: {e}")
+    print(f"ERROR Video router failed: {e}")
     video_router = None
 
 app = FastAPI(
@@ -81,56 +81,56 @@ print("=== Registering routers ===")
 if image_router:
     try:
         app.include_router(image_router)
-        print("✓ Image router registered successfully")
+        print("OK Image router registered successfully")
     except Exception as e:
-        print(f"✗ Failed to register image router: {e}")
+        print(f"ERROR Failed to register image router: {e}")
 else:
-    print("✗ Image router not available")
+    print("ERROR Image router not available")
 
 if text_router:
     try:
         app.include_router(text_router)
-        print("✓ Text router registered successfully")
+        print("OK Text router registered successfully")
     except Exception as e:
-        print(f"✗ Failed to register text router: {e}")
+        print(f"ERROR Failed to register text router: {e}")
 else:
-    print("✗ Text router not available")
+    print("ERROR Text router not available")
 
 if diary_router:
     try:
         app.include_router(diary_router)
-        print("✓ Diary router registered successfully")
+        print("OK Diary router registered successfully")
     except Exception as e:
-        print(f"✗ Failed to register diary router: {e}")
+        print(f"ERROR Failed to register diary router: {e}")
 else:
-    print("✗ Diary router not available")
+    print("ERROR Diary router not available")
 
 if auth_router:
     try:
         app.include_router(auth_router)
-        print("✓ Auth router registered successfully")
+        print("OK Auth router registered successfully")
     except Exception as e:
-        print(f"✗ Failed to register auth router: {e}")
+        print(f"ERROR Failed to register auth router: {e}")
 else:
-    print("✗ Auth router not available")
+    print("ERROR Auth router not available")
 
 if intro_router:
     try:
         app.include_router(intro_router)
-        print("✓ Intro router registered successfully")
+        print("OK Intro router registered successfully")
     except Exception as e:
-        print(f"✗ Failed to register intro router: {e}")
+        print(f"ERROR Failed to register intro router: {e}")
 else:
-    print("✗ Intro router not available")
+    print("ERROR Intro router not available")
 
 if video_router:
     try:
         app.include_router(video_router)
-        print("✓ Video router registered successfully")
+        print("OK Video router registered successfully")
     except Exception as e:
-        print(f"✗ Failed to register video router: {e}")
+        print(f"ERROR Failed to register video router: {e}")
 else:
-    print("✗ Video router not available")
+    print("ERROR Video router not available")
 
 print("=== App startup complete ===")
 print(f"App title: {app.title}")
