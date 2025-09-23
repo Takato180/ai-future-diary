@@ -279,23 +279,67 @@ async def generate_special_video(user_id: str = Depends(get_current_user_require
                 generation_id=existing_generation["generation_id"]
             )
 
-        # 特別なアルバム動画プロンプトを生成
+        # 7日間の実際の日記データを取得
+        from .diary import get_diary_entries_by_year
+        try:
+            # 7日間連続記録の具体的な日付を取得
+            streak_dates = streak_result.get("streak_dates", [])
+
+            # 年間エントリを取得
+            current_year = datetime.now().year
+            all_entries = await get_diary_entries_by_year(user_id, current_year)
+
+            # ストリーク日付のエントリだけを抽出
+            streak_entries = []
+            for entry in all_entries:
+                if entry['date'] in streak_dates:
+                    streak_entries.append(entry)
+
+            # 日付順にソート（最新から古い順）
+            streak_entries.sort(key=lambda x: x['date'], reverse=True)
+
+            diary_content_descriptions = []
+            for i, entry in enumerate(streak_entries[:7], 1):
+                day_desc = f"Day {i} ({entry['date']}): "
+                if entry.get('planText') and entry.get('actualText'):
+                    day_desc += f"Planned: {entry['planText'][:50]}... Actual: {entry['actualText'][:50]}..."
+                elif entry.get('actualText'):
+                    day_desc += f"Reflection: {entry['actualText'][:80]}..."
+                elif entry.get('planText'):
+                    day_desc += f"Plans: {entry['planText'][:80]}..."
+                else:
+                    day_desc += "A day of thoughtful journaling"
+                diary_content_descriptions.append(day_desc)
+
+        except Exception as e:
+            print(f"Failed to get diary entries: {e}")
+            diary_content_descriptions = [f"Day {i}: A meaningful day of journaling" for i in range(1, 8)]
+
+        # 特別なアルバム動画プロンプトを生成（実際の日記内容を反映）
         special_prompt = f"""
 Create an enchanting, personalized journey video for {user.userName} who has achieved 7 consecutive days of diary writing.
 
 Scene: A magical photo album that comes to life, celebrating their dedicated journal journey
-- Begin with an elegant, leather-bound photo album opening with golden light
-- The album pages turn gracefully, each page representing a day from their 7-day journey
-- Each page shows beautiful, dreamy illustrations representing daily life moments
-- Show scenes of daily activities: morning routines, work, meals, evening reflections
-- Magical transitions between pages with sparkles and light particles
-- The final page shows all 7 days in a beautiful collage format
-- End with the album closing and a congratulatory message appearing in golden letters
-- Include vibrant colors: {', '.join(user.favorite_colors) if user.favorite_colors else 'warm earth tones'}
-- Seasonal elements: {user.favorite_season if user.favorite_season else 'universal seasonal beauty'}
-- Atmosphere: Celebratory, personal, magical, inspiring - like a personal achievement showcase
-- Duration: 12 seconds (longer to showcase the journey)
-- Style: High-quality cinematic animation with personal photo album aesthetic
+- Begin with an elegant, leather-bound photo album with "{user.userName}'s 7-Day Journey" written in golden letters
+- The album opens with warm golden light emanating from the pages
+- Each page turn reveals a day from their actual journal journey:
+
+{chr(10).join(f"  Page {i}: {desc}" for i, desc in enumerate(diary_content_descriptions, 1))}
+
+Visual Style for each page:
+- Elegant book pages with soft parchment texture
+- Each page shows artistic illustrations inspired by the diary content
+- Gentle magical particles floating around each page as it's revealed
+- Smooth page-turning animations with light effects
+- Colors: {', '.join(user.favorite_colors) if user.favorite_colors else 'warm earth tones, soft golds, gentle blues'}
+- Seasonal atmosphere: {user.favorite_season if user.favorite_season else 'timeless, peaceful ambiance'}
+
+Final sequence:
+- All 7 pages visible in a beautiful collage showing the complete journey
+- Congratulatory golden text appears: "7 Days of Dedication - Well Done!"
+- Album gently closes with sparkles fading
+- Duration: 12 seconds to showcase the complete journey
+- Style: Cinematic book animation with personal photo album aesthetic, warm and celebrating
 
 This video celebrates {user.userName}'s dedication to capturing life's moments through their AI future diary.
 """
