@@ -1289,26 +1289,10 @@ function DiaryApp() {
                     📷 写真を選択
                   </label>
                 </div>
-                {planImagePreview && (
-                  <div className="relative rounded-2xl overflow-hidden border border-blue-100">
-                    <Image
-                      src={planImagePreview}
-                      alt="アップロードした写真"
-                      width={640}
-                      height={480}
-                      className="h-56 w-full object-cover"
-                    />
-                    <button
-                      onClick={() => removeUploadedImage('plan')}
-                      className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
+                {/* プレビュー画像は下の統合エリアで表示 */}
               </div>
 
-              {(planPage.text || planPage.imageUrl) && (
+              {(planPage.text || planPage.imageUrl || planImagePreview) && (
                 <div className="mt-6 space-y-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
                   {planInputHistory && (
                     <div className="border-b border-blue-200 pb-3 mb-3">
@@ -1326,15 +1310,23 @@ function DiaryApp() {
                       </p>
                     </div>
                   )}
-                  {planPage.imageUrl && (
-                    <div className="overflow-hidden rounded-2xl border border-blue-100">
+                  {(planImagePreview || planPage.imageUrl) && (
+                    <div className="relative overflow-hidden rounded-2xl border border-blue-100">
                       <Image
-                        src={planPage.imageUrl}
-                        alt="未来日記の挿絵"
+                        src={planImagePreview || planPage.imageUrl || ""}
+                        alt={planImagePreview ? "アップロードした写真" : "未来日記の挿絵"}
                         width={640}
                         height={480}
                         className="h-56 w-full object-cover"
                       />
+                      {planImagePreview && (
+                        <button
+                          onClick={() => removeUploadedImage('plan')}
+                          className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
+                        >
+                          ×
+                        </button>
+                      )}
                     </div>
                   )}
                   {planPage.text && (
@@ -1409,25 +1401,9 @@ function DiaryApp() {
                     📷 写真を選択
                   </label>
                 </div>
-                {actualImagePreview && (
-                  <div className="relative rounded-2xl overflow-hidden border border-emerald-100">
-                    <Image
-                      src={actualImagePreview}
-                      alt="アップロードした写真"
-                      width={640}
-                      height={480}
-                      className="h-56 w-full object-cover"
-                    />
-                    <button
-                      onClick={() => removeUploadedImage('actual')}
-                      className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
+                {/* プレビュー画像は下の統合エリアで表示 */}
               </div>
-              {(actualPage.text || actualPage.imageUrl) && (
+              {(actualPage.text || actualPage.imageUrl || actualImagePreview) && (
                 <div className="mt-6 space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
                   {actualInputHistory && (
                     <div className="border-b border-emerald-200 pb-3 mb-3">
@@ -1445,15 +1421,23 @@ function DiaryApp() {
                       </p>
                     </div>
                   )}
-                  {actualPage.imageUrl && (
-                    <div className="overflow-hidden rounded-2xl border border-emerald-100">
+                  {(actualImagePreview || actualPage.imageUrl) && (
+                    <div className="relative overflow-hidden rounded-2xl border border-emerald-100">
                       <Image
-                        src={actualPage.imageUrl}
-                        alt="実際日記の挿絵"
+                        src={actualImagePreview || actualPage.imageUrl || ""}
+                        alt={actualImagePreview ? "アップロードした写真" : "実際日記の挿絵"}
                         width={640}
                         height={480}
                         className="h-56 w-full object-cover"
                       />
+                      {actualImagePreview && (
+                        <button
+                          onClick={() => removeUploadedImage('actual')}
+                          className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
+                        >
+                          ×
+                        </button>
+                      )}
                     </div>
                   )}
                   {actualPage.text && (
