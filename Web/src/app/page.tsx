@@ -153,11 +153,13 @@ function DiaryApp() {
         setYearlyEntriesCache({});
       }
 
-      // Always clear uploaded images (they are date-specific and session-specific)
-      setPlanImageUpload(null);
-      setActualImageUpload(null);
-      setPlanImagePreview(null);
-      setActualImagePreview(null);
+      // Clear uploaded images only on user change (not date change)
+      if (isUserChange) {
+        setPlanImageUpload(null);
+        setActualImageUpload(null);
+        setPlanImagePreview(null);
+        setActualImagePreview(null);
+      }
 
       // Update previous user ID
       setPreviousUserId(currentUserId);
@@ -308,9 +310,7 @@ function DiaryApp() {
           const planDisplayImage = entry.planUploadedImageUrl || entry.planImageUrl;
           if (planDisplayImage) {
             setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
-            // Clear any uploaded images since we have saved URLs
-            setPlanImageUpload(null);
-            setPlanImagePreview(null);
+            // Keep uploaded images for editing - don't clear them
           }
 
           // Restore actual data completely
@@ -321,9 +321,7 @@ function DiaryApp() {
           const actualDisplayImage = entry.actualUploadedImageUrl || entry.actualImageUrl;
           if (actualDisplayImage) {
             setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
-            // Clear any uploaded images since we have saved URLs
-            setActualImageUpload(null);
-            setActualImagePreview(null);
+            // Keep uploaded images for editing - don't clear them
           }
 
           // Restore diff summary
@@ -596,15 +594,8 @@ function DiaryApp() {
         console.log('[DEBUG] Cache updated instantly after save for:', selectedDateString);
       }
 
-      // Clear uploaded images after save
-      if (planImageUpload) {
-        setPlanImageUpload(null);
-        setPlanImagePreview(null);
-      }
-      if (actualImageUpload) {
-        setActualImageUpload(null);
-        setActualImagePreview(null);
-      }
+      // Keep uploaded images after save for continued editing
+      // Don't clear them - user might want to add text or make changes
     } catch (error) {
       console.error("Failed to save diary entry:", error);
     }
@@ -709,17 +700,39 @@ function DiaryApp() {
     setShowAutoSuggestions(false);
   }
 
-  function handleImageUpload(file: File, type: 'plan' | 'actual') {
+  async function handleImageUpload(file: File, type: 'plan' | 'actual') {
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const result = e.target?.result as string;
         if (type === 'plan') {
           setPlanImageUpload(file);
           setPlanImagePreview(result);
+
+          // 自動保存: 写真アップロード時に即座に保存
+          try {
+            console.log('[DEBUG] Auto-saving plan uploaded image...');
+            await saveToDiary({
+              planUploadedImageUrl: 'uploading...' // プレースホルダー、saveToDiary内で実際のURLに置換
+            });
+            console.log('[DEBUG] Plan image auto-saved successfully');
+          } catch (error) {
+            console.error('[ERROR] Failed to auto-save plan image:', error);
+          }
         } else {
           setActualImageUpload(file);
           setActualImagePreview(result);
+
+          // 自動保存: 写真アップロード時に即座に保存
+          try {
+            console.log('[DEBUG] Auto-saving actual uploaded image...');
+            await saveToDiary({
+              actualUploadedImageUrl: 'uploading...' // プレースホルダー、saveToDiary内で実際のURLに置換
+            });
+            console.log('[DEBUG] Actual image auto-saved successfully');
+          } catch (error) {
+            console.error('[ERROR] Failed to auto-save actual image:', error);
+          }
         }
       };
       reader.readAsDataURL(file);
