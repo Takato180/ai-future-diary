@@ -261,19 +261,41 @@ function DiaryApp() {
         const cachedYearData = yearlyEntriesCache[currentYear];
         let entry: DiaryEntry | null = null;
 
-        // For small datasets (current state: 2025-09 only), always use individual API
-        // This ensures data consistency and avoids cache-related bugs
-        console.log('[DEBUG] Loading entry from individual API for:', selectedDateString);
-        entry = await getDiaryEntry(selectedDateString);
+        // Fast cache-first approach: instant display from cache, load nearby data if missing
+        if (cachedYearData) {
+          // Try cache first for instant display
+          entry = cachedYearData.find(e => e.date === selectedDateString) || null;
+          if (entry) {
+            console.log('[DEBUG] Entry loaded instantly from cache for:', selectedDateString);
+          }
+        }
 
-        // Update cache with fresh data if entry exists
-        if (entry && cachedYearData) {
-          const updatedCache = cachedYearData.filter(e => e.date !== selectedDateString);
-          updatedCache.push(entry);
-          setYearlyEntriesCache(prev => ({
-            ...prev,
-            [currentYear]: updatedCache
-          }));
+        // If not in cache, load month data to get nearby dates
+        if (!entry) {
+          console.log('[DEBUG] Loading month data for fast access:', selectedDateString);
+          const currentDate = new Date(selectedDateString);
+          const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+
+          try {
+            // Load entire month which should be fast for current data size
+            const monthEntries = await getDiaryEntriesByMonth(monthStr);
+            console.log('[DEBUG] Loaded month entries:', monthEntries.length);
+
+            // Update cache with month data
+            setYearlyEntriesCache(prev => ({
+              ...prev,
+              [currentYear]: monthEntries
+            }));
+
+            // Save to localStorage
+            const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
+            localStorage.setItem(cacheKey, JSON.stringify(monthEntries));
+
+            // Find target entry in loaded data
+            entry = monthEntries.find(e => e.date === selectedDateString) || null;
+          } catch (error) {
+            console.error('[DEBUG] Failed to load month data:', error);
+          }
         }
         if (entry) {
           console.log('[DEBUG] Restoring complete entry data:', entry);
@@ -541,19 +563,24 @@ function DiaryApp() {
       });
       setSavedEntry(savedEntryData);
 
-      // Update year cache with new entry
+      // Update cache instantly with saved entry for immediate UI update
       if (user?.userId) {
         const currentYear = new Date().getFullYear().toString();
         const cachedYearData = yearlyEntriesCache[currentYear];
-        if (cachedYearData) {
-          const updatedCache = cachedYearData.filter(entry => entry.date !== selectedDateString);
-          updatedCache.push(savedEntryData);
-          setYearlyEntriesCache({ ...yearlyEntriesCache, [currentYear]: updatedCache });
 
-          // Update localStorage cache
-          const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
-          localStorage.setItem(cacheKey, JSON.stringify(updatedCache));
-        }
+        // Always update cache to ensure UI consistency
+        const updatedCache = cachedYearData
+          ? cachedYearData.filter(entry => entry.date !== selectedDateString)
+          : [];
+        updatedCache.push(savedEntryData);
+
+        setYearlyEntriesCache({ ...yearlyEntriesCache, [currentYear]: updatedCache });
+
+        // Update localStorage cache
+        const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
+        localStorage.setItem(cacheKey, JSON.stringify(updatedCache));
+
+        console.log('[DEBUG] Cache updated instantly after save for:', selectedDateString);
       }
 
       // Clear uploaded images after save
