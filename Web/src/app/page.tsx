@@ -693,9 +693,11 @@ function DiaryApp() {
     setActualImageUpload(null);
     setPlanImagePreview(null);
     setActualImagePreview(null);
-    // Clear tags when changing dates
+    // Clear tags and input histories
     setPlanTags([]);
     setActualTags([]);
+    setPlanInputHistory("");
+    setActualInputHistory("");
     setAutoSuggestions([]);
     setShowAutoSuggestions(false);
   }

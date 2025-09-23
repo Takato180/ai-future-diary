@@ -12,23 +12,21 @@ export async function getSignedUrl(path: string, method: 'GET'|'PUT', contentTyp
 }
 
 export async function uploadImageFile(file: File, path: string): Promise<string> {
-  // Get signed URL for upload
-  const signedUrl = await getSignedUrl(path, 'PUT', file.type);
+  // Use server-side upload endpoint with query parameter approach
+  const formData = new FormData();
+  formData.append('file', file);
 
-  // Upload file to signed URL
-  const uploadResponse = await fetch(signedUrl, {
-    method: 'PUT',
-    body: file,
-    headers: {
-      'Content-Type': file.type,
-    },
+  const uploadResponse = await fetch(`${API}/storage/upload?object_path=${encodeURIComponent(path)}`, {
+    method: 'POST',
+    body: formData,
   });
 
   if (!uploadResponse.ok) {
-    throw new Error('Failed to upload image');
+    throw new Error(`Failed to upload image: ${await uploadResponse.text()}`);
   }
 
-  // Return public URL
+  const result = await uploadResponse.json();
+  // Return public URL - construct from API base and storage path
   return `${API}/storage/files/${path}`;
 }
 
