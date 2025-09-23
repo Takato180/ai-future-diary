@@ -90,10 +90,12 @@ class DiaryEntry(BaseModel):
     userId: str
     date: str  # YYYY-MM-DD format
     planText: Optional[str] = None
-    planImageUrl: Optional[str] = None
+    planImageUrl: Optional[str] = None  # AI生成画像
+    planUploadedImageUrl: Optional[str] = None  # アップロード画像
     planInputPrompt: Optional[str] = None  # User's original input for plan
     actualText: Optional[str] = None
-    actualImageUrl: Optional[str] = None
+    actualImageUrl: Optional[str] = None  # AI生成画像
+    actualUploadedImageUrl: Optional[str] = None  # アップロード画像
     actualInputPrompt: Optional[str] = None  # User's original input for actual
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
@@ -105,10 +107,12 @@ class DiaryEntryCreate(BaseModel):
     userId: str = "anonymous"
     date: str
     planText: Optional[str] = None
-    planImageUrl: Optional[str] = None
+    planImageUrl: Optional[str] = None  # AI生成画像
+    planUploadedImageUrl: Optional[str] = None  # アップロード画像
     planInputPrompt: Optional[str] = None
     actualText: Optional[str] = None
-    actualImageUrl: Optional[str] = None
+    actualImageUrl: Optional[str] = None  # AI生成画像
+    actualUploadedImageUrl: Optional[str] = None  # アップロード画像
     actualInputPrompt: Optional[str] = None
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
@@ -117,10 +121,12 @@ class DiaryEntryResponse(BaseModel):
     userId: str
     date: str
     planText: Optional[str] = None
-    planImageUrl: Optional[str] = None
+    planImageUrl: Optional[str] = None  # AI生成画像
+    planUploadedImageUrl: Optional[str] = None  # アップロード画像
     planInputPrompt: Optional[str] = None
     actualText: Optional[str] = None
-    actualImageUrl: Optional[str] = None
+    actualImageUrl: Optional[str] = None  # AI生成画像
+    actualUploadedImageUrl: Optional[str] = None  # アップロード画像
     actualInputPrompt: Optional[str] = None
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
@@ -164,8 +170,12 @@ async def save_diary_entry(entry: DiaryEntryCreate) -> DiaryEntry:
             date=entry.date,
             planText=entry.planText,
             planImageUrl=entry.planImageUrl,
+            planUploadedImageUrl=entry.planUploadedImageUrl,
+            planInputPrompt=entry.planInputPrompt,
             actualText=entry.actualText,
             actualImageUrl=entry.actualImageUrl,
+            actualUploadedImageUrl=entry.actualUploadedImageUrl,
+            actualInputPrompt=entry.actualInputPrompt,
             diffText=entry.diffText,
             tags=entry.tags,
             createdAt=now,
@@ -542,9 +552,11 @@ async def get_diary_entries_by_year(user_id: str, year: int) -> List[DiaryEntryR
                     date=data.get("date"),
                     planText=data.get("planText"),
                     planImageUrl=data.get("planImageUrl"),
+                    planUploadedImageUrl=data.get("planUploadedImageUrl"),
                     planInputPrompt=data.get("planInputPrompt"),
                     actualText=data.get("actualText"),
                     actualImageUrl=data.get("actualImageUrl"),
+                    actualUploadedImageUrl=data.get("actualUploadedImageUrl"),
                     actualInputPrompt=data.get("actualInputPrompt"),
                     diffText=data.get("diffText"),
                     tags=data.get("tags", []),

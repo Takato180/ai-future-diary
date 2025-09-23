@@ -305,8 +305,10 @@ function DiaryApp() {
           if (entry.planText) {
             setPlanPage(prev => ({ ...prev, text: entry.planText || "" }));
           }
-          if (entry.planImageUrl) {
-            setPlanPage(prev => ({ ...prev, imageUrl: entry.planImageUrl || null }));
+          // Priority: uploaded image first, then AI-generated image
+          const planDisplayImage = entry.planUploadedImageUrl || entry.planImageUrl;
+          if (planDisplayImage) {
+            setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
             // Clear any uploaded images since we have saved URLs
             setPlanImageUpload(null);
             setPlanImagePreview(null);
@@ -316,8 +318,10 @@ function DiaryApp() {
           if (entry.actualText) {
             setActualPage(prev => ({ ...prev, text: entry.actualText || "" }));
           }
-          if (entry.actualImageUrl) {
-            setActualPage(prev => ({ ...prev, imageUrl: entry.actualImageUrl || null }));
+          // Priority: uploaded image first, then AI-generated image
+          const actualDisplayImage = entry.actualUploadedImageUrl || entry.actualImageUrl;
+          if (actualDisplayImage) {
+            setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
             // Clear any uploaded images since we have saved URLs
             setActualImageUpload(null);
             setActualImagePreview(null);
@@ -475,9 +479,10 @@ function DiaryApp() {
       setPlanPage(newPlanPage);
 
       // Save to database
+      // Save both AI generated and uploaded images
       await saveToDiary({
         planText: textResult.generated_text,
-        planImageUrl: imageUrl || undefined,
+        planImageUrl: imageUrl || undefined, // AI生成画像（アップロードがあれば上書き）
       });
     } catch (error) {
       console.error("Plan generation failed", error);
@@ -525,9 +530,10 @@ function DiaryApp() {
       setActualPage(newActualPage);
 
       // Save to database
+      // Save both AI generated and uploaded images
       await saveToDiary({
         actualText: textResult.generated_text,
-        actualImageUrl: imageUrl || undefined,
+        actualImageUrl: imageUrl || undefined, // AI生成画像（アップロードがあれば上書き）
       });
     } catch (error) {
       console.error("Reflection generation failed", error);
@@ -538,24 +544,32 @@ function DiaryApp() {
 
   async function saveToDiary(updates: Partial<DiaryEntry>) {
     try {
-      // Upload images if present
-      let planImageUrl = updates.planImageUrl;
-      let actualImageUrl = updates.actualImageUrl;
+      // Handle dual image system: preserve both AI-generated and uploaded images
+      let planImageUrl = updates.planImageUrl; // AI生成画像
+      let actualImageUrl = updates.actualImageUrl; // AI生成画像
+      let planUploadedImageUrl = updates.planUploadedImageUrl; // アップロード画像
+      let actualUploadedImageUrl = updates.actualUploadedImageUrl; // アップロード画像
 
+      // Upload plan image if available
       if (planImageUpload) {
-        const imagePath = `diary/${user?.userId || 'anonymous'}/${selectedDateString}/plan_${Date.now()}.jpg`;
-        planImageUrl = await uploadImageFile(planImageUpload, imagePath);
+        const imagePath = `diary/${user?.userId || 'anonymous'}/${selectedDateString}/plan_uploaded_${Date.now()}.jpg`;
+        const uploadedUrl = await uploadImageFile(planImageUpload, imagePath);
+        planUploadedImageUrl = uploadedUrl; // Save to separate field
       }
 
+      // Upload actual image if available
       if (actualImageUpload) {
-        const imagePath = `diary/${user?.userId || 'anonymous'}/${selectedDateString}/actual_${Date.now()}.jpg`;
-        actualImageUrl = await uploadImageFile(actualImageUpload, imagePath);
+        const imagePath = `diary/${user?.userId || 'anonymous'}/${selectedDateString}/actual_uploaded_${Date.now()}.jpg`;
+        const uploadedUrl = await uploadImageFile(actualImageUpload, imagePath);
+        actualUploadedImageUrl = uploadedUrl; // Save to separate field
       }
 
       const savedEntryData = await saveDiaryEntry(selectedDateString, {
         date: selectedDateString,
-        planImageUrl,
-        actualImageUrl,
+        planImageUrl, // AI生成画像
+        planUploadedImageUrl, // アップロード画像
+        actualImageUrl, // AI生成画像
+        actualUploadedImageUrl, // アップロード画像
         planInputPrompt: planInputHistory,
         actualInputPrompt: actualInputHistory,
         tags: [...planTags, ...actualTags],

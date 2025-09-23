@@ -114,10 +114,12 @@ export interface DiaryEntry {
   userId: string;
   date: string; // YYYY-MM-DD
   planText?: string;
-  planImageUrl?: string;
+  planImageUrl?: string; // AI生成画像
+  planUploadedImageUrl?: string; // アップロード画像
   planInputPrompt?: string;
   actualText?: string;
-  actualImageUrl?: string;
+  actualImageUrl?: string; // AI生成画像
+  actualUploadedImageUrl?: string; // アップロード画像
   actualInputPrompt?: string;
   diffText?: string;
   tags?: string[];
@@ -130,10 +132,12 @@ export interface DiaryEntryCreate {
   userId?: string;
   date: string;
   planText?: string;
-  planImageUrl?: string;
+  planImageUrl?: string; // AI生成画像
+  planUploadedImageUrl?: string; // アップロード画像
   planInputPrompt?: string;
   actualText?: string;
-  actualImageUrl?: string;
+  actualImageUrl?: string; // AI生成画像
+  actualUploadedImageUrl?: string; // アップロード画像
   actualInputPrompt?: string;
   diffText?: string;
   tags?: string[];
