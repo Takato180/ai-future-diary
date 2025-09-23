@@ -319,7 +319,11 @@ function DiaryApp() {
           });
           if (planDisplayImage) {
             setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
-            // Keep uploaded images for editing - don't clear them
+          }
+          // Restore uploaded image preview if exists
+          if (entry.planUploadedImageUrl) {
+            setPlanImagePreview(entry.planUploadedImageUrl);
+            console.log('[DEBUG] Restored plan uploaded image preview:', entry.planUploadedImageUrl);
           }
 
           // Restore actual data completely
@@ -333,7 +337,11 @@ function DiaryApp() {
           });
           if (actualDisplayImage) {
             setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
-            // Keep uploaded images for editing - don't clear them
+          }
+          // Restore uploaded image preview if exists
+          if (entry.actualUploadedImageUrl) {
+            setActualImagePreview(entry.actualUploadedImageUrl);
+            console.log('[DEBUG] Restored actual uploaded image preview:', entry.actualUploadedImageUrl);
           }
 
           // Restore diff summary
@@ -375,11 +383,7 @@ function DiaryApp() {
           setPlanInputHistory("");
           setActualInputHistory("");
 
-          // Clear uploaded images for new dates
-          setPlanImageUpload(null);
-          setActualImageUpload(null);
-          setPlanImagePreview(null);
-          setActualImagePreview(null);
+          // Don't clear uploaded images here - they will be restored from saved entry or cleared if no entry exists
 
           // Clear tags for new dates
           setPlanTags([]);
@@ -491,7 +495,8 @@ function DiaryApp() {
       // Save both AI generated and uploaded images
       await saveToDiary({
         planText: textResult.generated_text,
-        planImageUrl: imageUrl || undefined, // AI生成画像（アップロードがあれば上書き）
+        planImageUrl: imageUrl || undefined, // AI生成画像
+        // planUploadedImageUrl will be handled by saveToDiary if planImageUpload exists
       });
     } catch (error) {
       console.error("Plan generation failed", error);
@@ -542,7 +547,8 @@ function DiaryApp() {
       // Save both AI generated and uploaded images
       await saveToDiary({
         actualText: textResult.generated_text,
-        actualImageUrl: imageUrl || undefined, // AI生成画像（アップロードがあれば上書き）
+        actualImageUrl: imageUrl || undefined, // AI生成画像
+        // actualUploadedImageUrl will be handled by saveToDiary if actualImageUpload exists
       });
     } catch (error) {
       console.error("Reflection generation failed", error);
@@ -581,7 +587,7 @@ function DiaryApp() {
         actualUploadedImageUrl = uploadedUrl; // Save to separate field
       }
 
-      const savedEntryData = await saveDiaryEntry(selectedDateString, {
+      const entryToSave = {
         date: selectedDateString,
         planImageUrl, // AI生成画像
         planUploadedImageUrl, // アップロード画像
@@ -591,7 +597,13 @@ function DiaryApp() {
         actualInputPrompt: actualInputHistory,
         tags: [...planTags, ...actualTags],
         ...updates,
-      });
+      };
+
+      console.log('[DEBUG] Saving diary entry:', entryToSave);
+      console.log('[DEBUG] Image upload states:', { planImageUpload: !!planImageUpload, actualImageUpload: !!actualImageUpload });
+
+      const savedEntryData = await saveDiaryEntry(selectedDateString, entryToSave);
+      console.log('[DEBUG] Saved entry data returned from API:', savedEntryData);
       setSavedEntry(savedEntryData);
 
       // Update cache instantly with saved entry for immediate UI update
@@ -684,7 +696,7 @@ function DiaryApp() {
     setPlanPage({ text: "", imageUrl: null, loading: false });
     setActualPage({ text: "", imageUrl: null, loading: false });
     setAiDiffSummary("");
-    // Clear uploaded images when changing dates
+    // Clear uploaded images when changing dates - will be restored if entry exists
     setPlanImageUpload(null);
     setActualImageUpload(null);
     setPlanImagePreview(null);
@@ -708,7 +720,7 @@ function DiaryApp() {
     setPlanPage({ text: "", imageUrl: null, loading: false });
     setActualPage({ text: "", imageUrl: null, loading: false });
     setAiDiffSummary("");
-    // Clear uploaded images when changing dates
+    // Clear uploaded images when changing dates - will be restored if entry exists
     setPlanImageUpload(null);
     setActualImageUpload(null);
     setPlanImagePreview(null);
