@@ -19,6 +19,9 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
   const [videoError, setVideoError] = useState('');
   const [videoSuccess, setVideoSuccess] = useState('');
   const [hasSevenDayStreak, setHasSevenDayStreak] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [daysNeeded, setDaysNeeded] = useState(7);
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState<UserProfileUpdate>({
     birth_date: '',
     gender: '',
@@ -68,6 +71,8 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
         try {
           const streakResult = await checkStreak(token);
           setHasSevenDayStreak(streakResult.has_seven_day_streak);
+          setCurrentStreak(streakResult.current_streak || 0);
+          setDaysNeeded(streakResult.needed_for_seven || 7);
         } catch (error) {
           console.error('Failed to check streak:', error);
         }
@@ -119,7 +124,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
 
   // 特別動画生成ハンドラー
   const handleGenerateSpecialVideo = async () => {
-    if (!token) return;
+    if (!token || !hasSevenDayStreak) return;
 
     setVideoGenerating(true);
     setVideoError('');
@@ -127,6 +132,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
 
     try {
       const result = await generateSpecialVideo(token);
+      setGeneratedVideoUrl(result.video_url);
       setVideoSuccess(`特別動画が生成されました！次回ログイン時に表示されます。`);
       console.log('Special video generated:', result);
     } catch (error) {
@@ -463,48 +469,77 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
           </div>
 
           {/* 特別動画生成セクション */}
-          {hasSevenDayStreak && (
-            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 space-y-4">
-              <h3 className="text-xl font-semibold text-slate-700 border-b border-yellow-200 pb-3 flex items-center gap-2">
-                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                特別動画生成
-              </h3>
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700 border-b border-yellow-200 pb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              特別動画生成
+            </h3>
 
+            {hasSevenDayStreak ? (
               <div className="text-sm text-slate-600 mb-4">
                 🎉 7日間連続記録を達成しました！あなただけの特別な動画を生成できます。
               </div>
+            ) : (
+              <div className="text-sm text-slate-600 mb-4">
+                📈 現在のストリーク: {currentStreak}日 / 7日
+                <br />
+                あと{daysNeeded - currentStreak}日間連続で記録すると特別動画を生成できます！
+              </div>
+            )}
 
-              {videoError && (
-                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
-                  {videoError}
-                </div>
-              )}
+            {videoError && (
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+                {videoError}
+              </div>
+            )}
 
-              {videoSuccess && (
-                <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg">
-                  {videoSuccess}
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleGenerateSpecialVideo}
-                disabled={videoGenerating}
-                className="w-full bg-gradient-to-r from-yellow-500 to-orange-600 text-white py-3 px-6 rounded-2xl font-semibold transition hover:from-yellow-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg"
-              >
-                {videoGenerating ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    動画生成中... (最大5分)
-                  </span>
-                ) : (
-                  '🎬 特別動画を生成する'
+            {videoSuccess && (
+              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg mb-4">
+                {videoSuccess}
+                {generatedVideoUrl && (
+                  <div className="mt-3">
+                    <a
+                      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                        '7日間連続で絵日記を書き続け、特別な動画を生成しました！🎬✨ #AI絵日記 #7日間チャレンジ'
+                      )}&url=${encodeURIComponent(generatedVideoUrl)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                      </svg>
+                      Xでシェア
+                    </a>
+                  </div>
                 )}
-              </button>
-            </div>
-          )}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleGenerateSpecialVideo}
+              disabled={videoGenerating || !hasSevenDayStreak}
+              className={`w-full py-3 px-6 rounded-2xl font-semibold transition shadow-lg ${
+                hasSevenDayStreak
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-600 text-white hover:from-yellow-600 hover:to-orange-700'
+                  : 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-600 cursor-not-allowed'
+              } ${videoGenerating ? 'from-gray-300 to-gray-400 cursor-not-allowed' : ''}`}
+            >
+              {videoGenerating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  動画生成中... (最大5分)
+                </span>
+              ) : hasSevenDayStreak ? (
+                '🎬 特別動画を生成する'
+              ) : (
+                `🔒 特別動画生成 (あと${daysNeeded - currentStreak}日)`
+              )}
+            </button>
+          </div>
 
           {error && (
             <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">

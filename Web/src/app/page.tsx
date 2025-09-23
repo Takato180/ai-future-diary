@@ -873,13 +873,47 @@ function DiaryApp() {
     }
   }
 
-  function removeUploadedImage(type: 'plan' | 'actual') {
+  async function removeUploadedImage(type: 'plan' | 'actual') {
     if (type === 'plan') {
       setPlanImageUpload(null);
       setPlanImagePreview(null);
+      setPlanPage(prev => ({ ...prev, imageUrl: savedEntry?.planImageUrl || null }));
+
+      // DBからアップロード画像を削除
+      if (savedEntry?.planUploadedImageUrl) {
+        try {
+          const updateData = {
+            date: selectedDateString,
+            planUploadedImageUrl: undefined,
+            displayPlanImage: (savedEntry?.planImageUrl ? 'generated' : null) as 'uploaded' | 'generated' | null
+          };
+          const updatedEntry = await saveDiaryEntry(selectedDateString, updateData);
+          setSavedEntry(updatedEntry);
+          console.log('[DEBUG] Plan uploaded image removed from DB');
+        } catch (error) {
+          console.error('Failed to remove plan uploaded image:', error);
+        }
+      }
     } else {
       setActualImageUpload(null);
       setActualImagePreview(null);
+      setActualPage(prev => ({ ...prev, imageUrl: savedEntry?.actualImageUrl || null }));
+
+      // DBからアップロード画像を削除
+      if (savedEntry?.actualUploadedImageUrl) {
+        try {
+          const updateData = {
+            date: selectedDateString,
+            actualUploadedImageUrl: undefined,
+            displayActualImage: (savedEntry?.actualImageUrl ? 'generated' : null) as 'uploaded' | 'generated' | null
+          };
+          const updatedEntry = await saveDiaryEntry(selectedDateString, updateData);
+          setSavedEntry(updatedEntry);
+          console.log('[DEBUG] Actual uploaded image removed from DB');
+        } catch (error) {
+          console.error('Failed to remove actual uploaded image:', error);
+        }
+      }
     }
   }
 
