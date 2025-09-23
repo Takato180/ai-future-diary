@@ -635,6 +635,26 @@ function DiaryApp() {
       console.log('[DEBUG] Saved entry data returned from API:', savedEntryData);
       setSavedEntry(savedEntryData);
 
+      // CRITICAL: Update display states immediately with saved data
+      const planDisplayImage = savedEntryData.planUploadedImageUrl || savedEntryData.planImageUrl;
+      const actualDisplayImage = savedEntryData.actualUploadedImageUrl || savedEntryData.actualImageUrl;
+
+      console.log('[DEBUG] Updating display states after save:', {
+        planUploadedImageUrl: savedEntryData.planUploadedImageUrl,
+        planImageUrl: savedEntryData.planImageUrl,
+        planDisplayImage,
+        actualUploadedImageUrl: savedEntryData.actualUploadedImageUrl,
+        actualImageUrl: savedEntryData.actualImageUrl,
+        actualDisplayImage
+      });
+
+      if (planDisplayImage) {
+        setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
+      }
+      if (actualDisplayImage) {
+        setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
+      }
+
       // Update cache instantly with saved entry for immediate UI update
       if (user?.userId) {
         const currentYear = new Date().getFullYear().toString();
@@ -1387,7 +1407,7 @@ function DiaryApp() {
                         />
                       ) : isValidHttpUrl(planPage.imageUrl) ? (
                         <Image
-                          src={planPage.imageUrl!}
+                          src={`${planPage.imageUrl!}?v=${savedEntry?.updatedAt || Date.now()}`}
                           alt="未来日記の挿絵"
                           width={640}
                           height={480}
@@ -1508,7 +1528,7 @@ function DiaryApp() {
                         />
                       ) : isValidHttpUrl(actualPage.imageUrl) ? (
                         <Image
-                          src={actualPage.imageUrl!}
+                          src={`${actualPage.imageUrl!}?v=${savedEntry?.updatedAt || Date.now()}`}
                           alt="実際日記の挿絵"
                           width={640}
                           height={480}
