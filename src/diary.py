@@ -9,7 +9,8 @@ from .db import (
     get_diary_entries_by_month,
     generate_diff_summary,
     get_firestore_status,
-    get_diary_entries_by_year
+    get_diary_entries_by_year,
+    get_user
 )
 from .auth import get_current_user
 
@@ -307,39 +308,140 @@ def _calculate_current_streak(entries: List[DiaryEntryResponse]) -> int:
     
     return current_streak
 
+def _find_all_seven_day_streaks(entries: List[DiaryEntryResponse], user_registration_date: datetime) -> List[dict]:
+    """登録日以降の全ての7日連続記録を検索"""
+    if not entries:
+        return []
+    
+    # 実際のテキストが入力されているエントリのみを対象
+    valid_entries = [e for e in entries if e.actualText and e.actualText.strip()]
+    if not valid_entries:
+        return []
+    
+    # 日付でソート（古い順）
+    valid_entries = sorted(valid_entries, key=lambda x: x.date)
+    
+    # 登録日以降のエントリのみを対象
+    registration_date = user_registration_date.date()
+    valid_entries = [e for e in valid_entries if datetime.strptime(e.date, "%Y-%m-%d").date() >= registration_date]
+    
+    if len(valid_entries) < 7:
+        return []
+    
+    streaks = []
+    i = 0
+    
+    while i <= len(valid_entries) - 7:
+        # 現在の位置から7日連続かチェック
+        is_consecutive = True
+        streak_dates = []
+        
+        for j in range(7):
+            current_date = datetime.strptime(valid_entries[i + j].date, "%Y-%m-%d").date()
+            streak_dates.append(valid_entries[i + j].date)
+            
+            if j > 0:
+                prev_date = datetime.strptime(valid_entries[i + j - 1].date, "%Y-%m-%d").date()
+                if (current_date - prev_date).days != 1:
+                    is_consecutive = False
+                    break
+        
+        if is_consecutive:
+            # 7日連続を発見
+            streaks.append({
+                "start_date": streak_dates[0],
+                "end_date": streak_dates[6],
+                "dates": streak_dates,
+                "completed_at": streak_dates[6]  # 7日目の日付
+            })
+            # 7日間スキップして次のストリークを探す（リセット）
+            i += 7
+        else:
+            i += 1
+    
+    return streaks
+
+def _calculate_current_streak_with_resets(entries: List[DiaryEntryResponse], completed_streaks: List[dict]) -> int:
+    """完了したストリークを考慮して現在のストリーク日数を計算"""
+    if not entries:
+        return 0
+    
+    # 実際のテキストが入力されているエントリのみを対象にして日付順でソート
+    valid_entries = [e for e in entries if e.actualText and e.actualText.strip()]
+    if not valid_entries:
+        return 0
+    
+    valid_entries = sorted(valid_entries, key=lambda x: x.date, reverse=True)
+    
+    # 最後に完了したストリークの終了日を取得
+    last_completed_date = None
+    if completed_streaks:
+        last_completed = max(completed_streaks, key=lambda x: x["completed_at"])
+        last_completed_date = datetime.strptime(last_completed["completed_at"], "%Y-%m-%d").date()
+    
+    today = datetime.now().date()
+    current_streak = 0
+    
+    # 最新の記録日から開始
+    latest_entry_date = datetime.strptime(valid_entries[0].date, "%Y-%m-%d").date()
+    
+    # 今日の記録があるか、昨日の記録があるかをチェック
+    if latest_entry_date == today:
+        start_date = today
+    elif latest_entry_date == today - timedelta(days=1):
+        start_date = latest_entry_date
+    else:
+        return 0
+    
+    # 連続記録日数を計算（完了したストリークの翌日から）
+    for i, entry in enumerate(valid_entries):
+        entry_date = datetime.strptime(entry.date, "%Y-%m-%d").date()
+        expected_date = start_date - timedelta(days=i)
+        
+        if entry_date == expected_date:
+            # 完了したストリークの範囲内の場合はカウントしない
+            if last_completed_date and entry_date <= last_completed_date:
+                break
+            current_streak += 1
+        else:
+            break
+    
+    return current_streak
+
 @router.get("/streak-check")
 async def check_streak(
     current_user_id: Optional[str] = Depends(get_current_user)
 ):
-    """7日間連続記録をチェック"""
+    """7日間連続記録をチェック（登録日以降、7日達成でリセット方式）"""
     try:
         if not current_user_id:
             raise HTTPException(status_code=401, detail="Authentication required")
+
+        # ユーザー情報を取得（登録日取得のため）
+        user = await get_user(current_user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
         # 現在の年の全エントリを取得
         current_year = datetime.now().year
         entries = await get_diary_entries_by_year(current_user_id, current_year)
 
-        # 7日間連続記録をチェック
-        streak_dates = _check_consecutive_days(entries, 7)
+        # 登録日以降の全ての7日連続記録を検索
+        completed_streaks = _find_all_seven_day_streaks(entries, user.createdAt)
 
-        if streak_dates:
-            return {
-                "has_seven_day_streak": True,
-                "streak_dates": streak_dates,
-                "latest_streak_date": streak_dates[0],
-                "total_entries": len(entries)
-            }
-        else:
-            # 現在の連続記録日数も計算（改善版）
-            current_streak = _calculate_current_streak(entries)
+        # 現在のストリーク日数を計算（完了したストリークを除外）
+        current_streak = _calculate_current_streak_with_resets(entries, completed_streaks)
 
-            return {
-                "has_seven_day_streak": False,
-                "current_streak": current_streak,
-                "total_entries": len(entries),
-                "needed_for_seven": max(0, 7 - current_streak)
-            }
+        return {
+            "has_seven_day_streak": len(completed_streaks) > 0,
+            "completed_streaks_count": len(completed_streaks),
+            "completed_streaks": completed_streaks,
+            "latest_completed_streak": completed_streaks[-1] if completed_streaks else None,
+            "current_streak": current_streak,
+            "total_entries": len([e for e in entries if e.actualText and e.actualText.strip()]),
+            "needed_for_seven": max(0, 7 - current_streak),
+            "registration_date": user.createdAt.date().isoformat()
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check streak: {str(e)}")

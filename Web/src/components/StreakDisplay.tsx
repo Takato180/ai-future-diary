@@ -80,35 +80,57 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
         </div>
       </div>
 
-      {streakData.has_seven_day_streak ? (
-        // 7日間達成済み
+      {streakData.has_seven_day_streak && streakData.completed_streaks_count > 0 ? (
+        // 7日間達成済み（複数回達成も表示）
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <div className="text-2xl">🎉</div>
             <div>
-              <div className="text-lg font-bold text-green-600">7日間連続達成！</div>
-              <div className="text-sm text-slate-600">
-                {streakData.latest_streak_date && `最新: ${streakData.latest_streak_date}`}
+              <div className="text-lg font-bold text-green-600">
+                7日間連続達成！ ({streakData.completed_streaks_count}回達成)
               </div>
+              {streakData.latest_completed_streak && (
+                <div className="text-sm text-slate-600">
+                  最新達成: {streakData.latest_completed_streak.end_date}
+                </div>
+              )}
             </div>
           </div>
           
-          {streakData.streak_dates && (
+          {/* 現在のストリーク進行中の場合 */}
+          {(streakData.current_streak || 0) > 0 && (
+            <div className="mt-4 p-3 rounded-xl bg-blue-50 border border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-700">新しいストリーク進行中</span>
+                <span className="text-lg font-bold text-blue-600">
+                  {streakData.current_streak}日連続
+                </span>
+              </div>
+              <div className="text-xs text-blue-600">
+                あと{streakData.needed_for_seven}日で次の7日間達成！
+              </div>
+              {/* 進捗バー */}
+              <div className="mt-2">
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${((streakData.current_streak || 0) / 7) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 完了したストリークの詳細（最新の3つまで） */}
+          {streakData.completed_streaks && streakData.completed_streaks.length > 0 && (
             <div className="mt-3">
-              <div className="text-xs font-medium text-slate-600 mb-2">連続記録日:</div>
-              <div className="grid grid-cols-7 gap-1">
-                {streakData.streak_dates.map((date, index) => (
-                  <div
-                    key={date}
-                    className={`
-                      text-xs p-2 rounded text-center font-medium
-                      ${index === 0 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-green-100 text-green-700'
-                      }
-                    `}
-                  >
-                    {new Date(date).getDate()}
+              <div className="text-xs font-medium text-slate-600 mb-2">達成履歴:</div>
+              <div className="space-y-2">
+                {streakData.completed_streaks.slice(-3).reverse().map((streak, index) => (
+                  <div key={streak.completed_at} className="text-xs p-2 rounded-lg bg-green-50 border border-green-200">
+                    <div className="font-medium text-green-700">
+                      {streak.start_date} 〜 {streak.end_date}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -126,7 +148,7 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
                   現在 {streakData.current_streak}日連続
                 </div>
                 <div className="text-sm text-slate-600">
-                  あと{streakData.needed_for_seven}日で7日間達成！
+                  あと{streakData.needed_for_seven}日で初回7日間達成！
                 </div>
               </div>
             </div>
@@ -165,6 +187,13 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
                 <span>🌟</span>
                 <span>今日から新しいストリークを始めましょう！継続は力なりです。</span>
               </div>
+            </div>
+          )}
+
+          {/* 登録日情報 */}
+          {streakData.registration_date && (
+            <div className="mt-3 text-xs text-slate-500">
+              登録日: {streakData.registration_date} から記録開始
             </div>
           )}
         </div>

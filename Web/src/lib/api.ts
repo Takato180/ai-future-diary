@@ -476,13 +476,22 @@ export async function generateSpecialVideo(token: string): Promise<VideoGenerate
 }
 
 // Diary Streak API
+export interface CompletedStreak {
+  start_date: string;
+  end_date: string;
+  dates: string[];
+  completed_at: string;
+}
+
 export interface StreakCheckResponse {
   has_seven_day_streak: boolean;
-  streak_dates?: string[];
-  latest_streak_date?: string;
-  current_streak?: number;
+  completed_streaks_count: number;
+  completed_streaks: CompletedStreak[];
+  latest_completed_streak?: CompletedStreak;
+  current_streak: number;
   total_entries: number;
-  needed_for_seven?: number;
+  needed_for_seven: number;
+  registration_date: string;
 }
 
 export async function checkStreak(token: string): Promise<StreakCheckResponse> {
