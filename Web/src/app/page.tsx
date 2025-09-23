@@ -8,7 +8,6 @@ import {
   generateImage,
   generateTodayReflection,
   saveDiaryEntry,
-  getDiaryEntry,
   getDiaryEntriesByMonth,
   getDiaryEntriesByYear,
   generateDiffSummary,
@@ -545,8 +544,8 @@ function DiaryApp() {
   async function saveToDiary(updates: Partial<DiaryEntry>) {
     try {
       // Handle dual image system: preserve both AI-generated and uploaded images
-      let planImageUrl = updates.planImageUrl; // AI生成画像
-      let actualImageUrl = updates.actualImageUrl; // AI生成画像
+      const planImageUrl = updates.planImageUrl; // AI生成画像
+      const actualImageUrl = updates.actualImageUrl; // AI生成画像
       let planUploadedImageUrl = updates.planUploadedImageUrl; // アップロード画像
       let actualUploadedImageUrl = updates.actualUploadedImageUrl; // アップロード画像
 
