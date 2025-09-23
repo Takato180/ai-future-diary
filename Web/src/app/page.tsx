@@ -350,11 +350,23 @@ function DiaryApp() {
           if (entry?.planText) {
             setPlanPage(prev => ({ ...prev, text: entry?.planText || "" }));
           }
-          // Priority: uploaded image first, then AI-generated image
-          const planDisplayImage = entry?.planUploadedImageUrl || entry?.planImageUrl;
+          // Use display preference flag (user choice is fixed)
+          let planDisplayImage = null;
+          if (entry?.displayPlanImage === 'uploaded' && entry?.planUploadedImageUrl) {
+            planDisplayImage = entry.planUploadedImageUrl;
+          } else if (entry?.displayPlanImage === 'generated' && entry?.planImageUrl) {
+            planDisplayImage = entry.planImageUrl;
+          } else {
+            // Fallback: uploaded first, then generated
+            planDisplayImage = entry?.planUploadedImageUrl || entry?.planImageUrl;
+          }
+
           console.log('[DEBUG] Plan display image selected:', planDisplayImage, {
-            priority: entry?.planUploadedImageUrl ? 'uploaded' : 'generated'
+            displayFlag: entry?.displayPlanImage,
+            uploaded: entry?.planUploadedImageUrl,
+            generated: entry?.planImageUrl
           });
+
           if (planDisplayImage) {
             setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
           }
@@ -368,11 +380,23 @@ function DiaryApp() {
           if (entry?.actualText) {
             setActualPage(prev => ({ ...prev, text: entry?.actualText || "" }));
           }
-          // Priority: uploaded image first, then AI-generated image
-          const actualDisplayImage = entry?.actualUploadedImageUrl || entry?.actualImageUrl;
+          // Use display preference flag (user choice is fixed)
+          let actualDisplayImage = null;
+          if (entry?.displayActualImage === 'uploaded' && entry?.actualUploadedImageUrl) {
+            actualDisplayImage = entry.actualUploadedImageUrl;
+          } else if (entry?.displayActualImage === 'generated' && entry?.actualImageUrl) {
+            actualDisplayImage = entry.actualImageUrl;
+          } else {
+            // Fallback: uploaded first, then generated
+            actualDisplayImage = entry?.actualUploadedImageUrl || entry?.actualImageUrl;
+          }
+
           console.log('[DEBUG] Actual display image selected:', actualDisplayImage, {
-            priority: entry?.actualUploadedImageUrl ? 'uploaded' : 'generated'
+            displayFlag: entry?.displayActualImage,
+            uploaded: entry?.actualUploadedImageUrl,
+            generated: entry?.actualImageUrl
           });
+
           if (actualDisplayImage) {
             setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
           }
@@ -633,8 +657,10 @@ function DiaryApp() {
         date: selectedDateString,
         planImageUrl, // AI生成画像
         planUploadedImageUrl, // アップロード画像
+        displayPlanImage: planUploadedImageUrl ? 'uploaded' : (planImageUrl ? 'generated' : null),
         actualImageUrl, // AI生成画像
         actualUploadedImageUrl, // アップロード画像
+        displayActualImage: actualUploadedImageUrl ? 'uploaded' : (actualImageUrl ? 'generated' : null),
         planInputPrompt: planInputHistory,
         actualInputPrompt: actualInputHistory,
         tags: [...planTags, ...actualTags],

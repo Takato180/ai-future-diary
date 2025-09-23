@@ -115,10 +115,12 @@ export interface DiaryEntry {
   planImageUrl?: string; // AI生成画像
   planUploadedImageUrl?: string; // アップロード画像
   planInputPrompt?: string;
+  displayPlanImage?: 'uploaded' | 'generated' | null; // ユーザー選択を固定
   actualText?: string;
   actualImageUrl?: string; // AI生成画像
   actualUploadedImageUrl?: string; // アップロード画像
   actualInputPrompt?: string;
+  displayActualImage?: 'uploaded' | 'generated' | null; // ユーザー選択を固定
   diffText?: string;
   tags?: string[];
   createdAt: string;
@@ -133,10 +135,12 @@ export interface DiaryEntryCreate {
   planImageUrl?: string; // AI生成画像
   planUploadedImageUrl?: string; // アップロード画像
   planInputPrompt?: string;
+  displayPlanImage?: 'uploaded' | 'generated' | null;
   actualText?: string;
   actualImageUrl?: string; // AI生成画像
   actualUploadedImageUrl?: string; // アップロード画像
   actualInputPrompt?: string;
+  displayActualImage?: 'uploaded' | 'generated' | null;
   diffText?: string;
   tags?: string[];
 }

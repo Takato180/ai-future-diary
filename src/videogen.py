@@ -374,6 +374,9 @@ This video celebrates {user.userName}'s dedication to capturing life's moments t
             # 特別動画生成完了をマーク
             await _mark_special_video_generation_completed(user_id, generation_id, video_url)
 
+            # ストリークリセット：翌日から新しいカウント開始
+            await _reset_streak_after_video_generation(user_id)
+
             print(f"[VIDEO] Successfully generated special album video: {video_url}")
 
             return VideoGenerateResponse(
@@ -424,6 +427,19 @@ async def _mark_special_video_generation_completed(user_id: str, generation_id: 
         })
     except Exception as e:
         print(f"Failed to mark special video generation completed: {e}")
+
+async def _reset_streak_after_video_generation(user_id: str) -> None:
+    """動画生成後にストリークをリセット（翌日から新しいカウント開始）"""
+    try:
+        # 動画生成履歴をマーク（同じストリークで複数回生成を防ぐ）
+        doc_ref = db.collection("video_generations").document(user_id)
+        doc_ref.update({
+            "last_streak_used": datetime.now(timezone.utc),
+            "next_video_available_after": datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        })
+        print(f"[VIDEO] Streak reset marked for user {user_id}, next video available after new 7-day streak")
+    except Exception as e:
+        print(f"Failed to reset streak after video generation: {e}")
 
 # 開発・テスト用: 動画生成をトリガーするエンドポイント（後で削除予定）
 @router.post("/trigger-generation")
