@@ -559,6 +559,14 @@ function DiaryApp() {
       let planUploadedImageUrl = updates.planUploadedImageUrl; // アップロード画像
       let actualUploadedImageUrl = updates.actualUploadedImageUrl; // アップロード画像
 
+      // Skip saving temporary "uploading..." states
+      if (planUploadedImageUrl === 'uploading...') {
+        planUploadedImageUrl = undefined;
+      }
+      if (actualUploadedImageUrl === 'uploading...') {
+        actualUploadedImageUrl = undefined;
+      }
+
       // Upload plan image if available
       if (planImageUpload) {
         const imagePath = `diary/${user?.userId || 'anonymous'}/${selectedDateString}/plan_uploaded_${Date.now()}.jpg`;
