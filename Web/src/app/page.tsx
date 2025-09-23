@@ -884,44 +884,57 @@ function DiaryApp() {
     if (type === 'plan') {
       setPlanImageUpload(null);
       setPlanImagePreview(null);
-      setPlanPage(prev => ({ ...prev, imageUrl: savedEntry?.planImageUrl || null }));
-
+      
       // DBからアップロード画像を削除
       if (savedEntry?.planUploadedImageUrl) {
         try {
           const updateData = {
-            date: selectedDateString,
-            planUploadedImageUrl: undefined,
+            date: selectedDateString, // 必須フィールドを追加
+            planUploadedImageUrl: undefined, // undefinedで削除
             displayPlanImage: (savedEntry?.planImageUrl ? 'generated' : null) as 'uploaded' | 'generated' | null
           };
           const updatedEntry = await saveDiaryEntry(selectedDateString, updateData);
           setSavedEntry(updatedEntry);
-          console.log('[DEBUG] Plan uploaded image removed from DB');
+          
+          // 表示も更新
+          setPlanPage(prev => ({ ...prev, imageUrl: savedEntry?.planImageUrl || null }));
+          console.log('[DEBUG] Plan uploaded image removed from DB and UI');
         } catch (error) {
           console.error('Failed to remove plan uploaded image:', error);
         }
+      } else {
+        // DBに保存されていない場合は、プレビューだけクリア
+        setPlanPage(prev => ({ ...prev, imageUrl: savedEntry?.planImageUrl || null }));
       }
     } else {
       setActualImageUpload(null);
       setActualImagePreview(null);
-      setActualPage(prev => ({ ...prev, imageUrl: savedEntry?.actualImageUrl || null }));
-
+      
       // DBからアップロード画像を削除
       if (savedEntry?.actualUploadedImageUrl) {
         try {
           const updateData = {
-            date: selectedDateString,
-            actualUploadedImageUrl: undefined,
+            date: selectedDateString, // 必須フィールドを追加
+            actualUploadedImageUrl: undefined, // undefinedで削除
             displayActualImage: (savedEntry?.actualImageUrl ? 'generated' : null) as 'uploaded' | 'generated' | null
           };
           const updatedEntry = await saveDiaryEntry(selectedDateString, updateData);
           setSavedEntry(updatedEntry);
-          console.log('[DEBUG] Actual uploaded image removed from DB');
+          
+          // 表示も更新
+          setActualPage(prev => ({ ...prev, imageUrl: savedEntry?.actualImageUrl || null }));
+          console.log('[DEBUG] Actual uploaded image removed from DB and UI');
         } catch (error) {
           console.error('Failed to remove actual uploaded image:', error);
         }
+      } else {
+        // DBに保存されていない場合は、プレビューだけクリア
+        setActualPage(prev => ({ ...prev, imageUrl: savedEntry?.actualImageUrl || null }));
       }
     }
+
+    // ストリーク情報を更新
+    setStreakRefreshTrigger(prev => prev + 1);
   }
 
   function addTag(tag: string, type: 'plan' | 'actual') {

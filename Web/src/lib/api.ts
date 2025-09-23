@@ -509,3 +509,14 @@ export async function checkStreak(token: string): Promise<StreakCheckResponse> {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+// デバッグ用エンドポイント
+export async function getStreakDebugInfo(token: string): Promise<any> {
+  const r = await fetch(`${API}/diary/streak-debug`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
