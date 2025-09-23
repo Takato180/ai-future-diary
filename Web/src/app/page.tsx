@@ -186,7 +186,7 @@ function DiaryApp() {
                 // Load year data from API
                 console.log(`[DEBUG] Loading ${year} data from API...`);
                 try {
-                  const yearEntries = await getDiaryEntriesByYear(year);
+                  const yearEntries = await getDiaryEntriesByYear(year, user.userId);
                   newCache[year.toString()] = yearEntries;
                   localStorage.setItem(cacheKey, JSON.stringify(yearEntries));
                   console.log(`[DEBUG] Year ${year} data loaded and cached:`, yearEntries.length, 'entries');
@@ -278,7 +278,7 @@ function DiaryApp() {
 
           try {
             // Load entire month which should be fast for current data size
-            const monthEntries = await getDiaryEntriesByMonth(monthStr);
+            const monthEntries = await getDiaryEntriesByMonth(monthStr, user.userId);
             console.log('[DEBUG] Loaded month entries:', monthEntries.length);
 
             // Update cache with month data
@@ -402,7 +402,7 @@ function DiaryApp() {
 
         // Fallback to API call if no cache
         console.log('[DEBUG] Loading monthly entries from API...');
-        const entries = await getDiaryEntriesByMonth(yearMonth);
+        const entries = await getDiaryEntriesByMonth(yearMonth, user?.userId);
         console.log('[DEBUG] Monthly entries loaded from API:', entries.length);
         setMonthlyEntries(entries);
       } catch (error) {
