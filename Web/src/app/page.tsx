@@ -14,6 +14,7 @@ import {
   getActivitySuggestions,
   uploadImageFile,
   DiaryEntry,
+  DiaryEntryCreate,
 } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/AuthModal";
