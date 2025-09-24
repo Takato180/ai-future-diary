@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import {
   API,
   generateFutureDiary,
@@ -147,6 +147,10 @@ function DiaryApp() {
   const [actualInputHistory, setActualInputHistory] = useState<string>("");
   const [streakRefreshTrigger, setStreakRefreshTrigger] = useState(0); // ストリーク更新トリガー
 
+  // 競合防止のためのトークンとフラグ
+  const loadTokenRef = useRef(0);
+  const [restoring, setRestoring] = useState(false);
+
   const diffSummary = useMemo(
     () => buildDiffSummary(planPage.text, actualPage.text),
     [planPage.text, actualPage.text],
@@ -278,13 +282,20 @@ function DiaryApp() {
     }
   }, [user?.userId, isLoading, previousUserId]); // Trigger when user ID changes
 
-  // Load existing entry when date changes or user changes
+  // Load existing entry when date changes or user changes - with anti-race condition
   useEffect(() => {
-    async function loadEntry() {
-      // Skip loading if no user is logged in
-      if (isLoading || !user) return;
+    // Skip loading if no user is logged in
+    if (isLoading || !user) return;
 
+    const loadToken = ++loadTokenRef.current;
+    const abortController = new AbortController();
+
+    console.log('[DEBUG] Load started with token:', loadToken, 'for date:', selectedDateString);
+
+    async function loadEntry() {
       try {
+        setRestoring(true);
+
         // Try to get entry from year cache first
         const currentYear = new Date(selectedDateString).getFullYear().toString();
         const cachedYearData = yearlyEntriesCache[currentYear];
@@ -300,7 +311,7 @@ function DiaryApp() {
         }
 
         // If not in cache, load month data to get nearby dates
-        if (!entry) {
+        if (!entry && !abortController.signal.aborted) {
           console.log('[DEBUG] Loading month data for fast access:', selectedDateString);
           const currentDate = new Date(selectedDateString);
           const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
@@ -308,6 +319,13 @@ function DiaryApp() {
           try {
             // Load entire month which should be fast for current data size
             const monthEntries = await getDiaryEntriesByMonth(monthStr, user.userId);
+
+            // Check if this request was cancelled
+            if (loadToken !== loadTokenRef.current || abortController.signal.aborted) {
+              console.log('[DEBUG] Load cancelled, token mismatch:', loadToken, 'vs', loadTokenRef.current);
+              return;
+            }
+
             // Sanitize entries to prevent invalid URLs
             const sanitizedMonthEntries = monthEntries.map(sanitizeImageUrls);
             console.log('[DEBUG] Loaded month entries (sanitized):', sanitizedMonthEntries.length);
@@ -325,144 +343,91 @@ function DiaryApp() {
             // Find target entry in loaded data
             entry = sanitizedMonthEntries.find(e => e.date === selectedDateString) || null;
           } catch (error) {
-            console.error('[DEBUG] Failed to load month data:', error);
+            if (!abortController.signal.aborted) {
+              console.error('[DEBUG] Failed to load month data:', error);
+            }
           }
         }
+
+        // Final check before applying data
+        if (loadToken !== loadTokenRef.current || abortController.signal.aborted) {
+          console.log('[DEBUG] Final load cancelled, not applying data');
+          return;
+        }
+
+        // Apply entry data or clear state atomically
         if (entry) {
-          // Sanitize entry data to prevent invalid URLs
           entry = sanitizeImageUrls(entry);
-          console.log('[DEBUG] Restoring complete entry data (sanitized):', entry);
-          console.log('[DEBUG] Image URLs check:', {
-            planImageUrl: entry?.planImageUrl,
-            planUploadedImageUrl: entry?.planUploadedImageUrl,
-            actualImageUrl: entry?.actualImageUrl,
-            actualUploadedImageUrl: entry?.actualUploadedImageUrl
-          });
+          console.log('[DEBUG] Applying entry data for token:', loadToken, entry);
+
+          // Apply all state changes atomically
           setSavedEntry(entry);
 
-          // Restore plan data completely
-          if (entry?.planText) {
-            setPlanPage(prev => ({ ...prev, text: entry?.planText || "" }));
-          }
-          // Use display preference flag (user choice is fixed)
-          let planDisplayImage = null;
-          if (entry?.displayPlanImage === 'uploaded' && entry?.planUploadedImageUrl) {
-            planDisplayImage = entry.planUploadedImageUrl;
-          } else if (entry?.displayPlanImage === 'generated' && entry?.planImageUrl) {
-            planDisplayImage = entry.planImageUrl;
-          } else {
-            // Fallback: uploaded first, then generated
-            planDisplayImage = entry?.planUploadedImageUrl || entry?.planImageUrl;
-          }
+          // Restore plan data
+          setPlanPage(prev => ({ ...prev, text: entry?.planText || "" }));
+          setPlanInputHistory(entry?.planInputPrompt || "");
+          setPlanInput(entry?.planInputPrompt || "");
 
-          console.log('[DEBUG] Plan display image selected:', planDisplayImage, {
-            displayFlag: entry?.displayPlanImage,
-            uploaded: entry?.planUploadedImageUrl,
-            generated: entry?.planImageUrl
-          });
+          // Restore actual data - CRITICAL: ensure both plan and actual are treated identically
+          setActualPage(prev => ({ ...prev, text: entry?.actualText || "" }));
+          setActualInputHistory(entry?.actualInputPrompt || "");
+          setActualInput(entry?.actualInputPrompt || "");
 
-          if (planDisplayImage) {
-            setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
-          }
-          // Restore uploaded image preview if exists
-          if (entry?.planUploadedImageUrl) {
-            setPlanImagePreview(entry.planUploadedImageUrl);
-            console.log('[DEBUG] Restored plan uploaded image preview:', entry.planUploadedImageUrl);
-          }
+          // Apply images
+          const planDisplayImage = entry?.planUploadedImageUrl || entry?.planImageUrl;
+          const actualDisplayImage = entry?.actualUploadedImageUrl || entry?.actualImageUrl;
 
-          // Restore actual data completely
-          if (entry?.actualText) {
-            setActualPage(prev => ({ ...prev, text: entry?.actualText || "" }));
-          }
-          // Use display preference flag (user choice is fixed)
-          let actualDisplayImage = null;
-          if (entry?.displayActualImage === 'uploaded' && entry?.actualUploadedImageUrl) {
-            actualDisplayImage = entry.actualUploadedImageUrl;
-          } else if (entry?.displayActualImage === 'generated' && entry?.actualImageUrl) {
-            actualDisplayImage = entry.actualImageUrl;
-          } else {
-            // Fallback: uploaded first, then generated
-            actualDisplayImage = entry?.actualUploadedImageUrl || entry?.actualImageUrl;
-          }
+          if (planDisplayImage) setPlanPage(prev => ({ ...prev, imageUrl: planDisplayImage }));
+          if (actualDisplayImage) setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
 
-          console.log('[DEBUG] Actual display image selected:', actualDisplayImage, {
-            displayFlag: entry?.displayActualImage,
-            uploaded: entry?.actualUploadedImageUrl,
-            generated: entry?.actualImageUrl
-          });
+          if (entry?.planUploadedImageUrl) setPlanImagePreview(entry.planUploadedImageUrl);
+          if (entry?.actualUploadedImageUrl) setActualImagePreview(entry.actualUploadedImageUrl);
 
-          if (actualDisplayImage) {
-            setActualPage(prev => ({ ...prev, imageUrl: actualDisplayImage }));
-          }
-          // Restore uploaded image preview if exists
-          if (entry?.actualUploadedImageUrl) {
-            setActualImagePreview(entry.actualUploadedImageUrl);
-            console.log('[DEBUG] Restored actual uploaded image preview:', entry.actualUploadedImageUrl);
-          }
+          // Apply other data
+          setAiDiffSummary(entry?.diffText || "");
+          setPlanTags(entry?.tags || []);
+          setActualTags([]);
 
-          // Restore diff summary
-          if (entry?.diffText) {
-            setAiDiffSummary(entry.diffText);
-          }
-
-          // Restore tags
-          if (entry?.tags && entry.tags.length > 0) {
-            setPlanTags(entry.tags);
-            setActualTags([]);
-          }
-
-          // Restore input prompts to input fields (always restore for editing)
-          if (entry?.planInputPrompt) {
-            setPlanInputHistory(entry.planInputPrompt);
-            setPlanInput(entry.planInputPrompt); // Always restore for editing
-            console.log('[DEBUG] Plan input restored:', entry.planInputPrompt);
-          } else {
-            console.log('[DEBUG] No plan input prompt to restore');
-          }
-          if (entry?.actualInputPrompt) {
-            setActualInputHistory(entry.actualInputPrompt);
-            setActualInput(entry.actualInputPrompt); // Always restore for editing
-            console.log('[DEBUG] Actual input restored:', entry.actualInputPrompt);
-          } else {
-            console.log('[DEBUG] No actual input prompt to restore');
-          }
-
-          console.log('[DEBUG] Entry data restoration completed');
+          console.log('[DEBUG] Entry data restoration completed for token:', loadToken);
+          console.log('[DEBUG] Restored inputs - plan:', entry?.planInputPrompt, 'actual:', entry?.actualInputPrompt);
         } else {
-          // No entry found after checking both cache AND individual API
-          console.log('[DEBUG] No entry found for date:', selectedDateString, '- confirmed by individual API');
-          setSavedEntry(null);
-          setAiDiffSummary("");
+          console.log('[DEBUG] No entry found, clearing all data for token:', loadToken);
 
-          // Clear all content for truly new dates (no existing entry)
+          // Clear all state atomically
+          setSavedEntry(null);
           setPlanPage({ text: "", imageUrl: null, loading: false });
           setActualPage({ text: "", imageUrl: null, loading: false });
-
-          // Clear input fields and histories for new dates - ensure both are treated the same way
           setPlanInput("");
           setActualInput("");
           setPlanInputHistory("");
           setActualInputHistory("");
-
-          // Clear uploaded images for new dates
           setPlanImageUpload(null);
           setActualImageUpload(null);
           setPlanImagePreview(null);
           setActualImagePreview(null);
-
-          // Clear tags for new dates
+          setAiDiffSummary("");
           setPlanTags([]);
           setActualTags([]);
-
-          console.log('[DEBUG] All data cleared for new date entry (no existing data found)');
         }
       } catch (error) {
-        console.error("Failed to load entry:", error);
+        if (!abortController.signal.aborted) {
+          console.error("Failed to load entry:", error);
+        }
+      } finally {
+        // Only set restoring to false if this is the latest request
+        if (loadToken === loadTokenRef.current) {
+          setRestoring(false);
+        }
       }
     }
+
     loadEntry();
+
+    return () => {
+      abortController.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDateString, user, isLoading]); // Remove yearlyEntriesCache to prevent infinite loop
+  }, [selectedDateString, user, isLoading]);
 
   // Load monthly entries for calendar (optimized with cache)
   useEffect(() => {
@@ -627,7 +592,25 @@ function DiaryApp() {
     }
   }
 
+  // Sanitize patch to prevent empty values from overwriting saved data
+  function sanitizePatch(patch: Partial<DiaryEntry>): Partial<DiaryEntry> {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) continue; // Skip undefined values
+      if (typeof value === 'string' && value.trim() === '') continue; // Skip empty strings
+      if (value === 'uploading...') continue; // Skip placeholder values
+      sanitized[key] = value;
+    }
+    return sanitized;
+  }
+
   async function saveToDiary(updates: Partial<DiaryEntry>) {
+    // Don't save during restoration to prevent race conditions
+    if (restoring) {
+      console.log('[DEBUG] Save blocked during restoration');
+      return;
+    }
+
     try {
       // Handle dual image system: preserve both AI-generated and uploaded images
       const planImageUrl = updates.planImageUrl; // AI生成画像
@@ -681,7 +664,11 @@ function DiaryApp() {
       console.log('[DEBUG] Saving diary entry:', entryToSave);
       console.log('[DEBUG] Image upload states:', { planImageUpload: !!planImageUpload, actualImageUpload: !!actualImageUpload });
 
-      const savedEntryData = await saveDiaryEntry(selectedDateString, entryToSave);
+      // Apply sanitization to prevent empty values from overwriting saved data
+      const sanitizedEntry = sanitizePatch(entryToSave);
+      console.log('[DEBUG] Sanitized entry for save:', sanitizedEntry);
+
+      const savedEntryData = await saveDiaryEntry(selectedDateString, sanitizedEntry);
       console.log('[DEBUG] Saved entry data returned from API:', savedEntryData);
       setSavedEntry(savedEntryData);
 
@@ -880,6 +867,11 @@ function DiaryApp() {
   }
 
   async function removeUploadedImage(type: 'plan' | 'actual') {
+    // Don't modify during restoration to prevent race conditions
+    if (restoring) {
+      console.log('[DEBUG] Image removal blocked during restoration');
+      return;
+    }
     if (type === 'plan') {
       setPlanImageUpload(null);
       setPlanImagePreview(null);
