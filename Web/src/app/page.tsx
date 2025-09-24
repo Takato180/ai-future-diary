@@ -207,7 +207,43 @@ function DiaryApp() {
         const loadYearData = async () => {
           const newCache: {[year: string]: DiaryEntry[]} = {};
 
-          for (const year of years) {
+          // Load current year first for immediate availability
+          const currentYearStr = currentYear.toString();
+          const currentYearCacheKey = `yearEntries_${user.userId}_${currentYear}`;
+
+          try {
+            const cachedData = localStorage.getItem(currentYearCacheKey);
+            if (cachedData) {
+              const yearEntries = JSON.parse(cachedData);
+              newCache[currentYearStr] = yearEntries;
+              console.log(`[DEBUG] Loaded cached data for current year ${currentYear}:`, yearEntries.length, 'entries');
+
+              // Set cache immediately for current year to enable instant access
+              setYearlyEntriesCache(prev => ({ ...prev, [currentYearStr]: yearEntries }));
+            } else {
+              // Load current year data from API immediately
+              console.log(`[DEBUG] Loading current year ${currentYear} data from API...`);
+              try {
+                const yearEntries = await getDiaryEntriesByYear(currentYear, user.userId);
+                newCache[currentYearStr] = yearEntries;
+                localStorage.setItem(currentYearCacheKey, JSON.stringify(yearEntries));
+                console.log(`[DEBUG] Current year ${currentYear} data loaded and cached:`, yearEntries.length, 'entries');
+
+                // Set cache immediately for current year
+                setYearlyEntriesCache(prev => ({ ...prev, [currentYearStr]: yearEntries }));
+              } catch (error) {
+                console.error(`Failed to load current year ${currentYear} data:`, error);
+                newCache[currentYearStr] = [];
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to load cache for current year ${currentYear}:`, error);
+            newCache[currentYearStr] = [];
+          }
+
+          // Load other years in background
+          const otherYears = years.filter(y => y !== currentYear);
+          for (const year of otherYears) {
             const cacheKey = `yearEntries_${user.userId}_${year}`;
 
             try {
@@ -217,17 +253,15 @@ function DiaryApp() {
                 newCache[year.toString()] = yearEntries;
                 console.log(`[DEBUG] Loaded cached data for ${year}:`, yearEntries.length, 'entries');
               } else {
-                // Load year data from API
-                console.log(`[DEBUG] Loading ${year} data from API...`);
-                try {
-                  const yearEntries = await getDiaryEntriesByYear(year, user.userId);
-                  newCache[year.toString()] = yearEntries;
+                // Load in background
+                getDiaryEntriesByYear(year, user.userId).then(yearEntries => {
                   localStorage.setItem(cacheKey, JSON.stringify(yearEntries));
-                  console.log(`[DEBUG] Year ${year} data loaded and cached:`, yearEntries.length, 'entries');
-                } catch (error) {
-                  console.error(`Failed to load ${year} data:`, error);
-                  newCache[year.toString()] = []; // Set empty array as fallback
-                }
+                  setYearlyEntriesCache(prev => ({ ...prev, [year.toString()]: yearEntries }));
+                  console.log(`[DEBUG] Background loaded ${year} data:`, yearEntries.length, 'entries');
+                }).catch(error => {
+                  console.error(`Failed to background load ${year} data:`, error);
+                });
+                newCache[year.toString()] = []; // Placeholder
               }
             } catch (error) {
               console.error(`Failed to load cache for ${year}:`, error);
@@ -236,7 +270,7 @@ function DiaryApp() {
           }
 
           setYearlyEntriesCache(newCache);
-          console.log('[DEBUG] Multi-year data cache loaded:', Object.keys(newCache).length, 'years');
+          console.log('[DEBUG] Multi-year data cache loaded with current year priority');
         };
 
         loadYearData();
@@ -304,22 +338,22 @@ function DiaryApp() {
         const cachedYearData = yearlyEntriesCache[currentYear];
         let entry: DiaryEntry | null = null;
 
-        // Try cache first for instant display, but always load fresh data for consistency
+        // Cache-first approach: use cache immediately for instant display
         if (cachedYearData) {
           entry = cachedYearData.find(e => e.date === selectedDateString) || null;
           if (entry) {
-            console.log('[DEBUG] Entry found in cache for:', selectedDateString);
+            console.log('[DEBUG] Using cached entry for instant display:', selectedDateString);
           }
         }
 
-        // Always load fresh data to ensure consistency, regardless of cache status
-        if (!abortController.signal.aborted && user?.userId) {
-          console.log('[DEBUG] Loading month data for fast access:', selectedDateString);
+        // Only load from API if not in cache or cache is incomplete
+        if (!entry && !abortController.signal.aborted && user?.userId) {
+          console.log('[DEBUG] Loading month data for missing entry:', selectedDateString);
           const currentDate = new Date(selectedDateString);
           const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 
           try {
-            // Load entire month which should be fast for current data size
+            // Load only if needed
             const monthEntries = await getDiaryEntriesByMonth(monthStr, user.userId);
 
             // Check if this request was cancelled
@@ -342,10 +376,9 @@ function DiaryApp() {
             const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
             localStorage.setItem(cacheKey, JSON.stringify(sanitizedMonthEntries));
 
-            // Find target entry in loaded data (this overwrites cache data with fresh data)
-            const freshEntry = sanitizedMonthEntries.find(e => e.date === selectedDateString) || null;
-            entry = freshEntry; // Use fresh data from API, not cache
-            console.log('[DEBUG] Using fresh entry from API for:', selectedDateString, !!freshEntry);
+            // Find target entry in loaded data
+            entry = sanitizedMonthEntries.find(e => e.date === selectedDateString) || null;
+            console.log('[DEBUG] Found entry from API:', selectedDateString, !!entry);
           } catch (error) {
             if (!abortController.signal.aborted) {
               console.error('[DEBUG] Failed to load month data:', error);
