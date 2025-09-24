@@ -668,7 +668,14 @@ function DiaryApp() {
       const sanitizedEntry = sanitizePatch(entryToSave);
       console.log('[DEBUG] Sanitized entry for save:', sanitizedEntry);
 
-      const savedEntryData = await saveDiaryEntry(selectedDateString, sanitizedEntry);
+      // Ensure required fields are present for DiaryEntryCreate
+      const entryForSave = {
+        date: selectedDateString,
+        userId: user?.userId || "anonymous",
+        ...sanitizedEntry
+      } as DiaryEntryCreate;
+
+      const savedEntryData = await saveDiaryEntry(selectedDateString, entryForSave);
       console.log('[DEBUG] Saved entry data returned from API:', savedEntryData);
       setSavedEntry(savedEntryData);
 
