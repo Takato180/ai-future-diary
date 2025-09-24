@@ -1,5 +1,5 @@
 # ai-future-diary
-AI Agent Hackathon
+第3回　AI Agent Hackathon
 
 Future Diary - AI未来日記生成アプリケーション
 
