@@ -594,12 +594,12 @@ function DiaryApp() {
 
   // Sanitize patch to prevent empty values from overwriting saved data
   function sanitizePatch(patch: Partial<DiaryEntry>): Partial<DiaryEntry> {
-    const sanitized: any = {};
+    const sanitized: Partial<DiaryEntry> = {};
     for (const [key, value] of Object.entries(patch)) {
       if (value === undefined) continue; // Skip undefined values
       if (typeof value === 'string' && value.trim() === '') continue; // Skip empty strings
       if (value === 'uploading...') continue; // Skip placeholder values
-      sanitized[key] = value;
+      (sanitized as Record<string, unknown>)[key] = value;
     }
     return sanitized;
   }
