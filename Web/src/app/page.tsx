@@ -167,35 +167,23 @@ function DiaryApp() {
       if (isUserChange) {
         console.log('[DEBUG] User changed from', previousUserId, 'to', currentUserId);
 
-        // Clear temporary state
-        setPlanInput("");
+        // Clear only temporary UI states - let loadEntry handle input clearing/restoration
         setInterestList([]);
-        setActualInput("");
         setShowTagLibrary(false);
         setAutoSuggestions([]);
         setShowAutoSuggestions(false);
         setShowCalendar(false);
 
-        // Clear persistent data that should be reloaded
-        setPlanPage({ text: "", imageUrl: null, loading: false });
-        setActualPage({ text: "", imageUrl: null, loading: false });
-        setAiDiffSummary("");
-        setPlanTags([]);
-        setActualTags([]);
+        // Clear cache and saved entry to force fresh load from DB
         setSavedEntry(null);
         setMonthlyEntries([]);
-
-        // Clear year cache when switching users
         setYearlyEntriesCache({});
+
+        // Note: Don't clear inputs, pages, tags, etc. here - let loadEntry handle everything consistently
+        console.log('[DEBUG] User changed, loadEntry will handle all data restoration for current date');
       }
 
-      // Clear uploaded images only on user change (not date change)
-      if (isUserChange) {
-        setPlanImageUpload(null);
-        setActualImageUpload(null);
-        setPlanImagePreview(null);
-        setActualImagePreview(null);
-      }
+      // Note: Don't clear uploaded images here either - let loadEntry handle all image state consistently
 
       // Update previous user ID
       setPreviousUserId(currentUserId);
@@ -442,24 +430,27 @@ function DiaryApp() {
           setSavedEntry(null);
           setAiDiffSummary("");
 
-          // Only clear if this is actually a new date (not just a cache miss)
-          // Clear all page content for truly new dates
+          // Clear all content for truly new dates (no existing entry)
           setPlanPage({ text: "", imageUrl: null, loading: false });
           setActualPage({ text: "", imageUrl: null, loading: false });
 
-          // Clear input fields and histories for new dates
+          // Clear input fields and histories for new dates - ensure both are treated the same way
           setPlanInput("");
           setActualInput("");
           setPlanInputHistory("");
           setActualInputHistory("");
 
-          // Don't clear uploaded images here - they will be restored from saved entry or cleared if no entry exists
+          // Clear uploaded images for new dates
+          setPlanImageUpload(null);
+          setActualImageUpload(null);
+          setPlanImagePreview(null);
+          setActualImagePreview(null);
 
           // Clear tags for new dates
           setPlanTags([]);
           setActualTags([]);
 
-          console.log('[DEBUG] Date cleared for new entry - confirmed by individual API call');
+          console.log('[DEBUG] All data cleared for new date entry (no existing data found)');
         }
       } catch (error) {
         console.error("Failed to load entry:", error);
@@ -806,49 +797,27 @@ function DiaryApp() {
       next.setDate(prev.getDate() + offset);
       return next;
     });
-    // Clear inputs and generated content (will be loaded from DB if exists)
-    setPlanInput("");
+    // DON'T clear inputs here - let loadEntry handle the restoration from DB
+    // Only clear temporary UI states
     setInterestList([]);
-    setActualInput("");
-    setPlanPage({ text: "", imageUrl: null, loading: false });
-    setActualPage({ text: "", imageUrl: null, loading: false });
-    setAiDiffSummary("");
-    // Clear uploaded images when changing dates - will be restored if entry exists
-    setPlanImageUpload(null);
-    setActualImageUpload(null);
-    setPlanImagePreview(null);
-    setActualImagePreview(null);
-    // Clear tags and input histories
-    setPlanTags([]);
-    setActualTags([]);
-    setPlanInputHistory("");
-    setActualInputHistory("");
     setAutoSuggestions([]);
     setShowAutoSuggestions(false);
+
+    // Note: All other states (inputs, images, etc.) will be properly handled by loadEntry useEffect
+    console.log('[DEBUG] Date changed, loadEntry will handle data restoration');
   }
 
   function handleCalendarDateSelect(date: Date) {
     setSelectedDate(date);
     setShowCalendar(false);
-    // Clear inputs and generated content (will be loaded from DB if exists)
-    setPlanInput("");
+    // DON'T clear inputs here - let loadEntry handle the restoration from DB
+    // Only clear temporary UI states
     setInterestList([]);
-    setActualInput("");
-    setPlanPage({ text: "", imageUrl: null, loading: false });
-    setActualPage({ text: "", imageUrl: null, loading: false });
-    setAiDiffSummary("");
-    // Clear uploaded images when changing dates - will be restored if entry exists
-    setPlanImageUpload(null);
-    setActualImageUpload(null);
-    setPlanImagePreview(null);
-    setActualImagePreview(null);
-    // Clear tags and input histories
-    setPlanTags([]);
-    setActualTags([]);
-    setPlanInputHistory("");
-    setActualInputHistory("");
     setAutoSuggestions([]);
     setShowAutoSuggestions(false);
+
+    // Note: All other states (inputs, images, etc.) will be properly handled by loadEntry useEffect
+    console.log('[DEBUG] Calendar date selected, loadEntry will handle data restoration');
   }
 
   async function handleImageUpload(file: File, type: 'plan' | 'actual') {
