@@ -346,43 +346,55 @@ function DiaryApp() {
           }
         }
 
-        // Only load from API if not in cache or cache is incomplete
-        if (!entry && !abortController.signal.aborted && user?.userId) {
-          console.log('[DEBUG] Loading month data for missing entry:', selectedDateString);
-          const currentDate = new Date(selectedDateString);
-          const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        // Load from API if not in cache OR if we need to ensure data freshness
+        if (!abortController.signal.aborted && user?.userId) {
+          // Always try API if cache miss, but also check if cache might be stale
+          const shouldLoadFromAPI = !entry || !cachedYearData;
 
-          try {
-            // Load only if needed
-            const monthEntries = await getDiaryEntriesByMonth(monthStr, user.userId);
+          if (shouldLoadFromAPI) {
+            console.log('[DEBUG] Loading month data for missing/stale entry:', selectedDateString);
+            const currentDate = new Date(selectedDateString);
+            const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 
-            // Check if this request was cancelled
-            if (loadToken !== loadTokenRef.current || abortController.signal.aborted) {
-              console.log('[DEBUG] Load cancelled, token mismatch:', loadToken, 'vs', loadTokenRef.current);
-              return;
+            try {
+              // Load month data from API
+              const monthEntries = await getDiaryEntriesByMonth(monthStr, user.userId);
+
+              // Check if this request was cancelled
+              if (loadToken !== loadTokenRef.current || abortController.signal.aborted) {
+                console.log('[DEBUG] API load cancelled, token mismatch:', loadToken, 'vs', loadTokenRef.current);
+                return; // Don't update UI for cancelled requests
+              }
+
+              // Sanitize entries to prevent invalid URLs
+              const sanitizedMonthEntries = monthEntries.map(sanitizeImageUrls);
+              console.log('[DEBUG] Loaded month entries from API:', sanitizedMonthEntries.length);
+
+              // Debug: Log all dates in the response
+              const datesInResponse = sanitizedMonthEntries.map(e => e.date);
+              console.log('[DEBUG] Dates found in API response:', datesInResponse);
+
+              // Update cache with month data
+              setYearlyEntriesCache(prev => ({
+                ...prev,
+                [currentYear]: sanitizedMonthEntries
+              }));
+
+              // Save to localStorage
+              const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
+              localStorage.setItem(cacheKey, JSON.stringify(sanitizedMonthEntries));
+
+              // Find target entry in loaded data - this overwrites cache result
+              const apiEntry = sanitizedMonthEntries.find(e => e.date === selectedDateString) || null;
+              entry = apiEntry; // Use API result as authoritative
+              console.log('[DEBUG] Found entry from API for', selectedDateString, ':', !!apiEntry);
+            } catch (error) {
+              if (!abortController.signal.aborted) {
+                console.error('[DEBUG] Failed to load month data:', error);
+              }
             }
-
-            // Sanitize entries to prevent invalid URLs
-            const sanitizedMonthEntries = monthEntries.map(sanitizeImageUrls);
-            console.log('[DEBUG] Loaded month entries (sanitized):', sanitizedMonthEntries.length);
-
-            // Update cache with month data
-            setYearlyEntriesCache(prev => ({
-              ...prev,
-              [currentYear]: sanitizedMonthEntries
-            }));
-
-            // Save to localStorage
-            const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
-            localStorage.setItem(cacheKey, JSON.stringify(sanitizedMonthEntries));
-
-            // Find target entry in loaded data
-            entry = sanitizedMonthEntries.find(e => e.date === selectedDateString) || null;
-            console.log('[DEBUG] Found entry from API:', selectedDateString, !!entry);
-          } catch (error) {
-            if (!abortController.signal.aborted) {
-              console.error('[DEBUG] Failed to load month data:', error);
-            }
+          } else {
+            console.log('[DEBUG] Using cache entry, skipping API call for:', selectedDateString);
           }
         }
 
@@ -392,7 +404,7 @@ function DiaryApp() {
           return;
         }
 
-        // Apply entry data or clear state atomically
+        // Apply entry data or clear state atomically - ONLY if this is the current token
         if (entry) {
           entry = sanitizeImageUrls(entry);
           console.log('[DEBUG] Applying entry data for token:', loadToken, entry);
@@ -428,9 +440,11 @@ function DiaryApp() {
           console.log('[DEBUG] Entry data restoration completed for token:', loadToken);
           console.log('[DEBUG] Restored inputs - plan:', entry?.planInputPrompt, 'actual:', entry?.actualInputPrompt);
         } else {
-          console.log('[DEBUG] No entry found, clearing all data for token:', loadToken);
+          // CRITICAL: Only clear UI if we genuinely confirmed no entry exists
+          // Don't clear if this was just a cache miss that got resolved
+          console.log('[DEBUG] No entry found after exhaustive search, clearing UI for token:', loadToken);
 
-          // Clear all state atomically
+          // Clear all state atomically - but only for confirmed empty dates
           setSavedEntry(null);
           setPlanPage({ text: "", imageUrl: null, loading: false });
           setActualPage({ text: "", imageUrl: null, loading: false });
