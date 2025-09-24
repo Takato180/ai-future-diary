@@ -311,7 +311,7 @@ function DiaryApp() {
         }
 
         // If not in cache, load month data to get nearby dates
-        if (!entry && !abortController.signal.aborted) {
+        if (!entry && !abortController.signal.aborted && user?.userId) {
           console.log('[DEBUG] Loading month data for fast access:', selectedDateString);
           const currentDate = new Date(selectedDateString);
           const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
