@@ -423,10 +423,16 @@ function DiaryApp() {
           if (entry?.planInputPrompt) {
             setPlanInputHistory(entry.planInputPrompt);
             setPlanInput(entry.planInputPrompt); // Always restore for editing
+            console.log('[DEBUG] Plan input restored:', entry.planInputPrompt);
+          } else {
+            console.log('[DEBUG] No plan input prompt to restore');
           }
           if (entry?.actualInputPrompt) {
             setActualInputHistory(entry.actualInputPrompt);
             setActualInput(entry.actualInputPrompt); // Always restore for editing
+            console.log('[DEBUG] Actual input restored:', entry.actualInputPrompt);
+          } else {
+            console.log('[DEBUG] No actual input prompt to restore');
           }
 
           console.log('[DEBUG] Entry data restoration completed');
@@ -584,6 +590,7 @@ function DiaryApp() {
 
     // Save user input for editing later
     setActualInputHistory(actualInput);
+    console.log('[DEBUG] Actual input history set:', actualInput);
 
     try {
       const textResult = await generateTodayReflection({
@@ -667,6 +674,13 @@ function DiaryApp() {
         actualInputPrompt: actualInputHistory,
         tags: [...planTags, ...actualTags],
         ...updates,
+      });
+
+      console.log('[DEBUG] Saving entry with input prompts:', {
+        planInputPrompt: planInputHistory,
+        actualInputPrompt: actualInputHistory,
+        hasPlanInputPrompt: !!planInputHistory,
+        hasActualInputPrompt: !!actualInputHistory
       });
 
       console.log('[DEBUG] Saving diary entry:', entryToSave);
