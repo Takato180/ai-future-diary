@@ -14,7 +14,9 @@
       "Bash(echo $PROJECT_ID)",
       "Bash(timeout:*)",
       "Bash(set BUCKET_NAME=ai-future-diary-bucket)",
-      "Bash(set BUCKET_NAME=ai-future-diary)"
+      "Bash(set BUCKET_NAME=ai-future-diary)",
+      "Bash(find:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

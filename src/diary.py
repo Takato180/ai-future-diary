@@ -321,9 +321,9 @@ def _find_all_seven_day_streaks(entries: List[DiaryEntryResponse], user_registra
     # 日付でソート（古い順）
     valid_entries = sorted(valid_entries, key=lambda x: x.date)
     
-    # 登録日以降のエントリのみを対象
+    # ハッカソン用: 登録日フィルタを無効化（全ての有効エントリを対象）
     registration_date = user_registration_date.date()
-    valid_entries = [e for e in valid_entries if datetime.strptime(e.date, "%Y-%m-%d").date() >= registration_date]
+    # valid_entries = [e for e in valid_entries if datetime.strptime(e.date, "%Y-%m-%d").date() >= registration_date]
     
     print(f"[STREAK DEBUG] Valid entries after registration filter: {len(valid_entries)}")
     print(f"[STREAK DEBUG] Dates: {[e.date for e in valid_entries]}")
@@ -412,12 +412,25 @@ def _calculate_current_streak_with_resets(entries: List[DiaryEntryResponse], com
     if not current_entries:
         return 0
     
-    # 最新の日付から遡って連続記録を計算
+    # 今日の日付を取得
+    today = datetime.now().date()
+    print(f"[STREAK DEBUG] Today's date: {today}")
+    
+    # 最新のエントリの日付を確認
+    latest_entry_date = datetime.strptime(current_entries[0].date, "%Y-%m-%d").date()
+    print(f"[STREAK DEBUG] Latest entry date: {latest_entry_date}")
+    
+    # もし最新のエントリが昨日より前の場合、現在のストリークは0
+    if (today - latest_entry_date).days > 1:
+        print(f"[STREAK DEBUG] Latest entry is {(today - latest_entry_date).days} days ago, streak broken")
+        return 0
+    
+    # 今日または昨日のエントリがある場合のみストリーク計算を続行
     current_streak = 1  # 最新のエントリは確実にカウント
-    prev_date = datetime.strptime(current_entries[0].date, "%Y-%m-%d").date()
-    
+    prev_date = latest_entry_date
+
     print(f"[STREAK DEBUG] Starting from date: {prev_date}")
-    
+
     for i in range(1, len(current_entries)):
         current_date = datetime.strptime(current_entries[i].date, "%Y-%m-%d").date()
         
@@ -430,11 +443,9 @@ def _calculate_current_streak_with_resets(entries: List[DiaryEntryResponse], com
             # 連続が途切れた
             print(f"[STREAK DEBUG] Break in streak at: {current_date}, gap: {(prev_date - current_date).days} days")
             break
-    
-    print(f"[STREAK DEBUG] Final current streak: {current_streak}")
-    return current_streak
 
-@router.get("/streak-debug")
+    print(f"[STREAK DEBUG] Final current streak: {current_streak}")
+    return current_streak@router.get("/streak-debug")
 async def streak_debug(
     current_user_id: Optional[str] = Depends(get_current_user)
 ):

@@ -1,45 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { checkStreak, getStreakDebugInfo, StreakCheckResponse } from "@/lib/api";
+import { checkStreak, StreakCheckResponse } from "@/lib/api";
 
 interface StreakDisplayProps {
   token?: string;
   userId?: string;
-  refreshTrigger?: number; // 外部から更新をトリガーするための値
-}
-
-// getStreakDebugInfoの戻り値の型と一致させる
-interface DebugInfo {
-  user_id: string;
-  registration_date: string;
-  total_entries: number;
-  valid_entries_count: number;
-  entries_after_registration: number;
-  all_entry_dates: string[];
-  valid_entry_dates: string[];
-  entries_after_reg_dates: string[];
-  consecutive_analysis: Array<{
-    from: string;
-    to: string;
-    gap_days: number;
-    is_consecutive: boolean;
-  }>;
-  sample_entries: Array<{
-    date: string;
-    has_plan: boolean;
-    has_actual: boolean;
-    plan_preview?: string;
-    actual_preview?: string;
-  }>;
+  refreshTrigger?: number;
 }
 
 export default function StreakDisplay({ token, userId, refreshTrigger }: StreakDisplayProps) {
   const [streakData, setStreakData] = useState<StreakCheckResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     if (!token || !userId) {
@@ -63,7 +36,7 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
     };
 
     fetchStreakData();
-  }, [token, userId, refreshTrigger]); // refreshTriggerを依存配列に追加
+  }, [token, userId, refreshTrigger]);
 
   if (!token || !userId) {
     return null;
@@ -153,7 +126,7 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
             <div className="mt-3">
               <div className="text-xs font-medium text-slate-600 mb-2">達成履歴:</div>
               <div className="space-y-2">
-                {streakData.completed_streaks.slice(-3).reverse().map((streak, index) => (
+                {streakData.completed_streaks.slice(-3).reverse().map((streak) => (
                   <div key={streak.completed_at} className="text-xs p-2 rounded-lg bg-green-50 border border-green-200">
                     <div className="font-medium text-green-700">
                       {streak.start_date} 〜 {streak.end_date}
@@ -226,112 +199,21 @@ export default function StreakDisplay({ token, userId, refreshTrigger }: StreakD
         </div>
       )}
 
-      {/* リフレッシュボタンとデバッグ情報 */}
-      <div className="mt-3 space-y-2">
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              if (token) {
-                setLoading(true);
-                checkStreak(token)
-                  .then(setStreakData)
-                  .catch(() => setError("更新に失敗しました"))
-                  .finally(() => setLoading(false));
-              }
-            }}
-            className="flex-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
-          >
-            🔄 更新
-          </button>
-          
-          <button
-            onClick={async () => {
-              if (token) {
-                try {
-                  setLoading(true);
-                  const debug = await getStreakDebugInfo(token);
-                  setDebugInfo(debug);
-                  setShowDebug(true);
-                  console.log("Debug info:", debug);
-                } catch (error) {
-                  console.error("Debug failed:", error);
-                  setError("デバッグ情報の取得に失敗しました");
-                } finally {
-                  setLoading(false);
-                }
-              }
-            }}
-            className="flex-1 text-xs text-blue-500 hover:text-blue-700 transition-colors"
-          >
-            🔍 詳細デバッグ
-          </button>
-        </div>
-        
-        {/* デバッグ情報表示 */}
-        {showDebug && debugInfo && (
-          <div className="mt-3 p-3 bg-gray-50 rounded text-xs space-y-2">
-            <div className="flex justify-between items-center">
-              <strong>詳細デバッグ情報</strong>
-              <button 
-                onClick={() => setShowDebug(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-            <div>登録日: {debugInfo.registration_date}</div>
-            <div>総エントリ数: {debugInfo.total_entries}</div>
-            <div>有効エントリ数: {debugInfo.valid_entries_count}</div>
-            <div>登録後エントリ数: {debugInfo.entries_after_registration}</div>
-            <div>
-              <strong>登録後のエントリ日付:</strong>
-              <div className="mt-1 text-xs bg-white p-2 rounded max-h-20 overflow-y-auto">
-                {debugInfo.entries_after_reg_dates?.join(", ") || "なし"}
-              </div>
-            </div>
-            <div>
-              <strong>連続性分析:</strong>
-              <div className="mt-1 space-y-1">
-                {debugInfo.consecutive_analysis?.slice(0, 5).map((item, idx) => (
-                  <div key={idx} className={`text-xs p-1 rounded ${item.is_consecutive ? 'bg-green-100' : 'bg-red-100'}`}>
-                    {item.from} → {item.to} (差: {item.gap_days}日) {item.is_consecutive ? "✓" : "✗"}
-                  </div>
-                )) || "分析データなし"}
-              </div>
-            </div>
-            <div>
-              <strong>サンプルエントリ:</strong>
-              <div className="mt-1 space-y-1 max-h-32 overflow-y-auto">
-                {debugInfo.sample_entries?.map((entry, idx) => (
-                  <div key={idx} className="text-xs p-1 bg-white rounded">
-                    <div><strong>{entry.date}</strong></div>
-                    <div>予定: {entry.has_plan ? "あり" : "なし"}</div>
-                    <div>実際: {entry.has_actual ? "あり" : "なし"}</div>
-                    {entry.actual_preview && (
-                      <div className="text-gray-600">内容: {entry.actual_preview}...</div>
-                    )}
-                  </div>
-                )) || "サンプルなし"}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* 標準デバッグ情報 */}
-        {streakData?.debug && (
-          <details className="text-xs">
-            <summary className="text-slate-500 cursor-pointer hover:text-slate-700">
-              基本デバッグ情報
-            </summary>
-            <div className="mt-2 p-2 bg-gray-50 rounded text-slate-600 space-y-1">
-              <div>総エントリ数: {streakData.debug.total_entries}</div>
-              <div>有効エントリ数: {streakData.debug.valid_entries}</div>
-              <div>登録日: {streakData.debug.registration_date}</div>
-              <div>エントリ日付: {streakData.debug.valid_entry_dates.join(', ')}</div>
-            </div>
-          </details>
-        )}
-      </div>
+      {/* リフレッシュボタン */}
+      <button
+        onClick={() => {
+          if (token) {
+            setLoading(true);
+            checkStreak(token)
+              .then(setStreakData)
+              .catch(() => setError("更新に失敗しました"))
+              .finally(() => setLoading(false));
+          }
+        }}
+        className="w-full mt-4 text-xs text-slate-500 hover:text-slate-700 transition-colors py-2 px-3 rounded-lg border border-slate-200 hover:bg-slate-50"
+      >
+        🔄 更新
+      </button>
     </div>
   );
 }

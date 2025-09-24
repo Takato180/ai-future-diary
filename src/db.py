@@ -93,10 +93,12 @@ class DiaryEntry(BaseModel):
     planImageUrl: Optional[str] = None  # AI生成画像
     planUploadedImageUrl: Optional[str] = None  # アップロード画像
     planInputPrompt: Optional[str] = None  # User's original input for plan
+    displayPlanImage: Optional[str] = None  # 'uploaded' | 'generated' | null
     actualText: Optional[str] = None
     actualImageUrl: Optional[str] = None  # AI生成画像
     actualUploadedImageUrl: Optional[str] = None  # アップロード画像
     actualInputPrompt: Optional[str] = None  # User's original input for actual
+    displayActualImage: Optional[str] = None  # 'uploaded' | 'generated' | null
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -110,10 +112,12 @@ class DiaryEntryCreate(BaseModel):
     planImageUrl: Optional[str] = None  # AI生成画像
     planUploadedImageUrl: Optional[str] = None  # アップロード画像
     planInputPrompt: Optional[str] = None
+    displayPlanImage: Optional[str] = None  # 'uploaded' | 'generated' | null
     actualText: Optional[str] = None
     actualImageUrl: Optional[str] = None  # AI生成画像
     actualUploadedImageUrl: Optional[str] = None  # アップロード画像
     actualInputPrompt: Optional[str] = None
+    displayActualImage: Optional[str] = None  # 'uploaded' | 'generated' | null
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
 
@@ -124,10 +128,12 @@ class DiaryEntryResponse(BaseModel):
     planImageUrl: Optional[str] = None  # AI生成画像
     planUploadedImageUrl: Optional[str] = None  # アップロード画像
     planInputPrompt: Optional[str] = None
+    displayPlanImage: Optional[str] = None  # 'uploaded' | 'generated' | null
     actualText: Optional[str] = None
     actualImageUrl: Optional[str] = None  # AI生成画像
     actualUploadedImageUrl: Optional[str] = None  # アップロード画像
     actualInputPrompt: Optional[str] = None
+    displayActualImage: Optional[str] = None  # 'uploaded' | 'generated' | null
     diffText: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     createdAt: datetime
