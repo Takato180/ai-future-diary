@@ -14,6 +14,17 @@ from .db import (
 )
 from .auth import get_current_user
 
+# JST設定
+JST_OFFSET = timedelta(hours=9)
+
+def get_jst_now():
+    """JST（日本標準時）での現在時刻を取得"""
+    return datetime.now() + JST_OFFSET
+
+def get_jst_today():
+    """JST（日本標準時）での今日の日付を取得"""
+    return get_jst_now().date()
+
 router = APIRouter(prefix="/diary", tags=["diary"])
 
 @router.get("/status")
@@ -437,38 +448,45 @@ async def streak_debug(
 
 @router.get("/streak-check")
 async def check_streak(
-    current_user_id: Optional[str] = Depends(get_current_user)
+    current_user_id: Optional[str] = Depends(get_current_user),
+    user_id: str = Query(default=None, description="User ID (optional)")
 ):
-    """7日間連続記録をチェック（登録日以降、7日達成でリセット方式）"""
+    """7日間連続記録をチェック（ハッカソン用：JST基準・ユーザーID統一）"""
     try:
-        if not current_user_id:
-            raise HTTPException(status_code=401, detail="Authentication required")
+        # ユーザーIDを決定（認証済みの場合は現在のユーザーを優先、未認証の場合のみクエリパラメータかデフォルト値を使用）
+        effective_user_id = current_user_id if current_user_id else (user_id or "anonymous")
 
-        # ユーザー情報を取得（登録日取得のため）
-        user = await get_user(current_user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+        print(f"[STREAK DEBUG] check_streak called for user: {effective_user_id}")
 
-        # 現在の年の全エントリを取得
-        current_year = datetime.now().year
-        entries = await get_diary_entries_by_year(current_user_id, current_year)
+        # 現在の年の全エントリを取得（JST基準）
+        current_year = get_jst_now().year
+        entries = await get_diary_entries_by_year(effective_user_id, current_year)
 
         # デバッグ用ログ
         valid_entries = [e for e in entries if e.actualText and e.actualText.strip()]
-        print(f"[STREAK DEBUG] User: {current_user_id}")
+        print(f"[STREAK DEBUG] Effective User ID: {effective_user_id}")
+        print(f"[STREAK DEBUG] Current Year (JST): {current_year}")
         print(f"[STREAK DEBUG] Total entries: {len(entries)}")
         print(f"[STREAK DEBUG] Valid entries (with actualText): {len(valid_entries)}")
         print(f"[STREAK DEBUG] Valid entry dates: {[e.date for e in sorted(valid_entries, key=lambda x: x.date)]}")
-        print(f"[STREAK DEBUG] Registration date: {user.createdAt.date()}")
 
-        # 登録日以降の全ての7日連続記録を検索
-        completed_streaks = _find_all_seven_day_streaks(entries, user.createdAt)
+        # ハッカソン用: 登録日チェックをオプションに
+        try:
+            user = await get_user(effective_user_id) if current_user_id else None
+            registration_date = user.createdAt if user else datetime.min
+            print(f"[STREAK DEBUG] Registration date: {registration_date.date() if user else 'N/A (anonymous)'}")
+        except:
+            registration_date = datetime.min
+            print(f"[STREAK DEBUG] Registration date: N/A (user not found)")
+
+        # 7日連続記録を検索
+        completed_streaks = _find_all_seven_day_streaks(entries, registration_date)
         print(f"[STREAK DEBUG] Completed streaks found: {len(completed_streaks)}")
         if completed_streaks:
             print(f"[STREAK DEBUG] Completed streaks details: {completed_streaks}")
 
-        # 現在のストリーク日数を計算（完了したストリークを除外）
-        current_streak = _calculate_current_streak_with_resets(entries, completed_streaks)
+        # 現在のストリーク日数を計算
+        current_streak = _calculate_current_streak(entries)
         print(f"[STREAK DEBUG] Current streak calculated: {current_streak}")
 
         return {
@@ -479,13 +497,15 @@ async def check_streak(
             "current_streak": current_streak,
             "total_entries": len([e for e in entries if e.actualText and e.actualText.strip()]),
             "needed_for_seven": max(0, 7 - current_streak),
-            "registration_date": user.createdAt.date().isoformat(),
-            # デバッグ情報も追加
+            "user_id": effective_user_id,
+            # デバッグ情報も追加（ハッカソン用）
             "debug": {
+                "jst_today": get_jst_today().isoformat(),
+                "jst_year": current_year,
                 "total_entries": len(entries),
                 "valid_entries": len(valid_entries),
                 "valid_entry_dates": [e.date for e in sorted(valid_entries, key=lambda x: x.date)],
-                "registration_date": user.createdAt.date().isoformat()
+                "registration_date": registration_date.date().isoformat() if user else "N/A"
             }
         }
 
