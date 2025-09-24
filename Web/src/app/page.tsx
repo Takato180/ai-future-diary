@@ -179,11 +179,15 @@ function DiaryApp() {
         setMonthlyEntries([]);
         setYearlyEntriesCache({});
 
-        // Note: Don't clear inputs, pages, tags, etc. here - let loadEntry handle everything consistently
-        console.log('[DEBUG] User changed, loadEntry will handle all data restoration for current date');
-      }
+        // Clear upload states - these are temporary and should not carry over between users
+        setPlanImageUpload(null);
+        setActualImageUpload(null);
+        setPlanImagePreview(null);
+        setActualImagePreview(null);
 
-      // Note: Don't clear uploaded images here either - let loadEntry handle all image state consistently
+        // Note: Don't clear inputs, pages, tags, etc. here - let loadEntry handle everything consistently
+        console.log('[DEBUG] User changed, temporary upload states cleared, loadEntry will handle all data restoration for current date');
+      }
 
       // Update previous user ID
       setPreviousUserId(currentUserId);
@@ -803,8 +807,14 @@ function DiaryApp() {
     setAutoSuggestions([]);
     setShowAutoSuggestions(false);
 
-    // Note: All other states (inputs, images, etc.) will be properly handled by loadEntry useEffect
-    console.log('[DEBUG] Date changed, loadEntry will handle data restoration');
+    // Clear upload states - these are temporary and not saved to DB yet
+    setPlanImageUpload(null);
+    setActualImageUpload(null);
+    setPlanImagePreview(null);
+    setActualImagePreview(null);
+
+    // Note: All other states (inputs, saved images, etc.) will be properly handled by loadEntry useEffect
+    console.log('[DEBUG] Date changed, temporary upload states cleared, loadEntry will handle DB restoration');
   }
 
   function handleCalendarDateSelect(date: Date) {
@@ -816,8 +826,14 @@ function DiaryApp() {
     setAutoSuggestions([]);
     setShowAutoSuggestions(false);
 
-    // Note: All other states (inputs, images, etc.) will be properly handled by loadEntry useEffect
-    console.log('[DEBUG] Calendar date selected, loadEntry will handle data restoration');
+    // Clear upload states - these are temporary and not saved to DB yet
+    setPlanImageUpload(null);
+    setActualImageUpload(null);
+    setPlanImagePreview(null);
+    setActualImagePreview(null);
+
+    // Note: All other states (inputs, saved images, etc.) will be properly handled by loadEntry useEffect
+    console.log('[DEBUG] Calendar date selected, temporary upload states cleared, loadEntry will handle DB restoration');
   }
 
   async function handleImageUpload(file: File, type: 'plan' | 'actual') {
