@@ -293,26 +293,27 @@ function DiaryApp() {
 
     console.log('[DEBUG] Load started with token:', loadToken, 'for date:', selectedDateString);
 
+    // Set restoring flag immediately to prevent race conditions
+    setRestoring(true);
+
     async function loadEntry() {
       try {
-        setRestoring(true);
 
         // Try to get entry from year cache first
         const currentYear = new Date(selectedDateString).getFullYear().toString();
         const cachedYearData = yearlyEntriesCache[currentYear];
         let entry: DiaryEntry | null = null;
 
-        // Fast cache-first approach: instant display from cache, load nearby data if missing
+        // Try cache first for instant display, but always load fresh data for consistency
         if (cachedYearData) {
-          // Try cache first for instant display
           entry = cachedYearData.find(e => e.date === selectedDateString) || null;
           if (entry) {
-            console.log('[DEBUG] Entry loaded instantly from cache for:', selectedDateString);
+            console.log('[DEBUG] Entry found in cache for:', selectedDateString);
           }
         }
 
-        // If not in cache, load month data to get nearby dates
-        if (!entry && !abortController.signal.aborted && user?.userId) {
+        // Always load fresh data to ensure consistency, regardless of cache status
+        if (!abortController.signal.aborted && user?.userId) {
           console.log('[DEBUG] Loading month data for fast access:', selectedDateString);
           const currentDate = new Date(selectedDateString);
           const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
@@ -341,8 +342,10 @@ function DiaryApp() {
             const cacheKey = `yearEntries_${user.userId}_${currentYear}`;
             localStorage.setItem(cacheKey, JSON.stringify(sanitizedMonthEntries));
 
-            // Find target entry in loaded data
-            entry = sanitizedMonthEntries.find(e => e.date === selectedDateString) || null;
+            // Find target entry in loaded data (this overwrites cache data with fresh data)
+            const freshEntry = sanitizedMonthEntries.find(e => e.date === selectedDateString) || null;
+            entry = freshEntry; // Use fresh data from API, not cache
+            console.log('[DEBUG] Using fresh entry from API for:', selectedDateString, !!freshEntry);
           } catch (error) {
             if (!abortController.signal.aborted) {
               console.error('[DEBUG] Failed to load month data:', error);
